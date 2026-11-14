@@ -1,6 +1,8 @@
 # LOA ROGUE
 
-모바일 가로 화면을 위한 웹 로그라이크 RPG. 현재 **Phase 1: 계정 · 로비 · 영웅 도감 · 시작 파티 저장**까지 구현했습니다. Firebase 및 원작 모델·이미지·음원을 사용하지 않습니다. 영웅 명칭 등 실제 IP의 배포 권한 확인은 별도 과제입니다.
+모바일 가로 화면을 위한 웹 로그라이크 RPG. 현재 **Phase 2: 계정 · 편성 · 도전 시작/이어하기 · 서버 턴제 전투**까지 구현했습니다. Firebase 및 원작 모델·이미지·음원을 사용하지 않습니다. 영웅 명칭 등 실제 IP의 배포 권한 확인은 별도 과제입니다.
+
+**주소 유지/고정 및 터미널 없이 운영:** [주소·백그라운드 운영](docs/FIXED_ADDRESS.md)
 
 **내 Mac에서 사람들에게 공유할 주소 만들기:** [Mac 서버 빠른 시작](docs/MAC_SERVER_QUICKSTART.md) — 도메인 없는 임시 HTTPS 주소와 고정 도메인 설정을 설명합니다.
 
@@ -13,6 +15,23 @@
 - `node:sqlite` 내장 드라이버를 사용합니다. Node 22에서 ExperimentalWarning이 출력될 수 있습니다. Node 20 이하에서는 실행되지 않습니다.
 - Argon2 네이티브 패키지는 보통 prebuilt를 사용합니다. 설치 시 소스 컴파일이 필요한 Mac에서는 `xcode-select --install`로 Command Line Tools를 설치하세요.
 - Node 버전 관리자가 있다면 저장소 루트에서 `nvm install && nvm use`. [Node 22 공식 지원 플랫폼](https://github.com/nodejs/node/blob/v22.x/BUILDING.md#platform-list)을 확인하세요.
+
+## 도전과 전투 사용법
+
+파티를 저장한 뒤 **도전 시작**을 누르면1층 전투로 진입합니다. 기본 공격/영웅별 스킬2개/궁극기/회복약/교체가 작동하고 모든 결과가 서버에 자동 저장됩니다. 로비로 돌아가거나 새로고침한 뒤 **도전 이어하기**로 복구합니다. 승리하면 보상1개를 고르고 다음 층으로 이동하며, 전멸/포기/100층 클리어 시 결정과 기록이 저장됩니다.
+
+자체 도형의3D SD 씬을 제공하며 저사양 모드 버튼으로2D 표시로 바꿀 수 있습니다. 현재는 **순차 전투 경로**이며 일반층 이벤트3후보/장비/상점은 미구현입니다. 자세한 수치·상태 중첩/지속·제한은 [전투 규칙](docs/COMBAT_RULES.md)을 참고하세요.
+
+기존 Mac 설치를 업데이트할 때는 cloudflared는 켜둔 채 **게임 서버만** Ctrl+C로 종료하고 아래를 실행합니다. 마지막 주소는 현재 사용 중인 실제 터널 주소로 교체합니다. 기존 DB는 삭제하지 마세요.
+
+```bash
+git pull --ff-only
+npm ci
+npm run build
+caffeinate -is npm run serve:public -- https://실제주소.trycloudflare.com
+```
+
+migration003은 기존 계정/편성을 보존하고 도전/기록 테이블을 추가합니다. 서버 시작이 migration을 자동 적용합니다.
 
 ## 아이디 가입과 공유 서버 업데이트
 
@@ -51,7 +70,7 @@ npm run build
 npm audit
 ```
 
-- `npm test`: 실제 임시 SQLite/Argon2/Fastify를 사용하는 API·공통 규칙 테스트. 비용/소유 계정 분리/멱등성/revision 경합/인증/CSRF/만료·폐기/재시작 복구 등을 검증합니다.
+- `npm test`: 실제 임시 SQLite/Argon2/Fastify API·공통 규칙·시드 전투 엔진 테스트. 비용/소유 계정 분리/멱등성/revision 경합/인증/CSRF/만료·폐기/재시작 복구 등을 검증합니다.
 - `npm run build`: 타입 검사 → Vite 웹 정적 빌드 → 서버 번들. 결과는 `apps/web/dist`, `apps/server/dist`입니다. 공통 패키지를 서버 번들에 포함하므로 운영 실행에 TS 로더가 필요 없습니다.
 - 브라우저 E2E(선택적 개발 도구, 테스트 자체는 이번 작업에서 실행):
 
@@ -62,7 +81,7 @@ npm run test:e2e
 CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-`test:e2e`는 빌드 후 별도 Fastify(127.0.0.1:3002)와 임시 DB를 구동합니다. 가입→비용초과 차단→편성 순서 저장→새로고침→로그아웃→로그인, 가로844×390/세로390×844 표시를 검사합니다. 3002 포트는 비워두세요. Chromium 설치에는 네트워크 접근이 필요합니다.
+`test:e2e`는 빌드 후 별도 Fastify(127.0.0.1:3002)와 임시 DB를 구동합니다. 가입→비용초과 차단→편성 순서 저장→새로고침→로그인 및 3D 전투 시작→스킬→복구→승리 보상→포기 기록, 저사양2D 교체와 가로844×390/세로390×844 표시를 검사합니다. 3002 포트는 비워두세요. Chromium 설치에는 네트워크 접근이 필요합니다.
 
 ## 빌드된 앱 실행
 
@@ -124,6 +143,20 @@ cloudflared tunnel run loa-rogue
 
 5. 실제 HTTPS 도메인에서 회원가입/로그인/저장/재접속을 검증하고, 매일 online backup과 복구 연습을 진행합니다. `launchd` 등의 프로세스 관리자로 서버/터널 자동 재시작을 설정하고, 실행 디렉터리는 저장소 루트로 고정하세요. 로그는 stderr/stdout으로 출력되므로 관리자 로그 파일에 보관하고 로테이션을 설정하세요(세션/비밀번호/body 로깅 미사용). 초기에는 포그라운드 실행과 `caffeinate -is npm start`로 절전 중단을 방지할 수 있습니다. 실제 서비스에는 전원·네트워크 가용성과 모니터링이 필요합니다.
 
+## 도전 API
+
+| 메서드 | 경로 | 기능 |
+|---|---|---|
+| POST | /api/runs | 저장 편성으로 도전 시작(계정revision) |
+| GET | /api/runs/active | 활성 도전 또는 null |
+| GET | /api/runs/:id | 본인 도전 상태 |
+| POST | /api/runs/:id/battle-action | action: attack / skill(skillId) / switch(heroId) / potion |
+| POST | /api/runs/:id/select-reward | choice: heal / gauge / gold |
+| POST | /api/runs/:id/abandon | 포기와 결정 지급 |
+| GET | /api/records | 본인 최근 종료 기록30건 |
+
+도전 쓰기는 run의 revision을 사용하며 시작만 계정 revision을 사용합니다. 보상/종료의 재화 지급까지 동일 actionId 트랜잭션에 포함됩니다. 서버가 난수와 행동 결과의 최종 권한자입니다.
+
 ## 현재 API와 안전 장치
 
 `GET /api/health` 외에는 인증이 필요합니다. 회원가입/로그인은 인증 전 허용합니다.
@@ -137,16 +170,15 @@ cloudflared tunnel run loa-rogue
 | GET | /api/heroes | 6영웅 기본 스탯/현재 코스트 |
 | PUT | /api/party | 순서가 있는 편성 저장 |
 
-모든 쓰기 요청에는 `Origin: PUBLIC_ORIGIN`, UUID `actionId`, 정수 `revision`이 필요합니다. 인증 전 쓰기는 revision=0, 파티/로그아웃은 `/auth/me`의 계정 revision입니다. 파티 저장만 게임 revision을 증가시킵니다. 같은 사용자·actionId·payload 재시도는 저장한 결과를 반환하고, 다른 payload/경로 재사용과 낡은 revision은409입니다. 클라이언트는 연결 실패 시 같은 요청을 한 번 재전송합니다. logout 재생 외의 보호 API는 유효 세션이 필요하며, 만료·폐기된 로그인 action을 재생해도 세션을 되살리지 않습니다(새 actionId로 재로그인).
+모든 쓰기 요청에는 `Origin: PUBLIC_ORIGIN`, UUID `actionId`, 정수 `revision`이 필요합니다. 인증 전 쓰기는 revision=0, 파티/로그아웃은 `/auth/me`의 계정 revision입니다. 파티 저장·도전 시작·도전 종료가 계정 revision을 증가시키며, 전투/보상 선택은 도전 revision을 증가시킵니다. 같은 사용자·actionId·payload 재시도는 저장한 결과를 반환하고, 다른 payload/경로 재사용과 낡은 revision은409입니다. 클라이언트는 연결 실패 시 같은 요청을 한 번 재전송합니다. logout 재생 외의 보호 API는 유효 세션이 필요하며, 만료·폐기된 로그인 action을 재생해도 세션을 되살리지 않습니다(새 actionId로 재로그인).
 
 비밀번호 Argon2id, 7일 HttpOnly/SameSite=Strict 세션, 운영 Secure, DB에는 세션 SHA256만 저장. 요청 스키마/크기/가입·로그인 속도 제한, Origin 검증, SQLite FK/WAL/트랜잭션을 적용합니다. 별도 CORS 허용을 하지 않고 같은 origin의 앱만 사용합니다.
 
-## 미구현 범위
+## 남은 범위
 
-- Phase 2: 도전 생성/이어하기, 실제 전투·교체·스킬·궁극기·상태이상.
-- Phase 3: R3F/Three.js 자체 3등신 SD 모델과 씬. 라이브러리만 준비되었고 현재 영웅 도감은 CSS 상징을 사용합니다.
-- Phase 4: 100층, 이벤트 후보, 몬스터50종/보스 패턴.
-- Phase 5: 장비·상점·합성·제작·미지 이벤트12종.
-- Phase 6: 결정 지급/소비, 실제 영구 강화·코스트 구매, 기록/제작법 도감/계정 삭제/운영 자동화.
+- Phase3 확장: 고유 모델/세부 스킬 이펙트, 실제 모바일 GPU/성능 검증. 현재 자체3등신 도형과2D fallback은 작동합니다.
+- Phase4: 일반층 이벤트3후보/저장/선택, 몬스터 일반30·정예10·보스10종 독립 데이터와 패턴. 현재는5지역 적 템플릿과 공유 보스 패턴의1~100 순차 전투 경로입니다.
+- Phase5: 장비·상점·합성·제작·미지 이벤트12종.
+- Phase6: 영구 강화·코스트 구매/제작법 도감/계정 삭제/운영 검증. 결정 지급/도전 결과/기록 저장은 이번에 구현했습니다.
 
-서버의 초기 강화 데이터는 모두0이며 테스트에서만 감소 단계를 주입해 비용 검증을 확인합니다. 현재 API로 재화를 지급하거나 강화를 구매할 수 없습니다. 완료되지 않은 기능의 실행 버튼을 제공하지 않습니다.
+현재 API로 영구 강화는 구매할 수 없습니다. 강화 데이터는 기본0이며 시작 파티 코스트 검증 및 스탯 스냅샷에 반영할 준비가 되어 있습니다. Mac LaunchAgent는 생성기와 설치 안내를 제공하지만 실제 Mac 서비스·Cloudflare 도메인은 클라우드에서 검증하지 않았습니다.

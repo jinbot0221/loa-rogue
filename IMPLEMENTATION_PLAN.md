@@ -44,3 +44,13 @@ Phase 1 실제 임시 SQLite + Fastify inject: 회원가입/중복/잘못된 로
 
 ## 2026-11-14 사용자 요청 반영
 신규 가입/로그인 식별자를 username으로 변경(영문/숫자/밑줄3~20자). migration002에서 email 열을 rename하여 기존 이메일 계정·세션·진행을 보존하며 기존 이메일은 로그인 식별자로 허용. CSRF Origin 엄격 검증은 유지하고 오류에 허용 주소/복구 명령을 안내. serve:public 실행기로 현재 HTTPS 터널 URL을 PUBLIC_ORIGIN에 명시 적용.
+
+## 이번 작업: 도전 시작과 전투
+
+- Phase 2: 저장 편성을 스냅샷으로 고정해 새 도전/이어하기. 1대1 턴, 속도 우선, 강제/자발 교체, 기본 공격/영웅별 스킬2/궁극기/패시브, 무력화/보스 면역/상태이상/회복약. 순수 시드 엔진과 서버 원자 저장, RNG는 응답에서 숨김.
+- 플레이 가능한 전투 경로: 1~100층을 순서대로 전투, 10층마다 보스. 승리 후 회복/궁극기 충전/골드 중 보상1개를 서버에서 한 번 선택하고 다음 층. 이 경로는 전투 검증용이며 일반층 이벤트3후보/장비/상점/균열12종은 Phase4~5로 명확히 남긴다.
+- 자체 도형 기반 R3F SD 전투 씬을 함께 제공. WebGL 실패 시 전투를 계속할 수 있는 2D 표시. 서버 로그가 HP/행동/애니메이션의 기준.
+- migration003: runs(계정당 active1, revision, seed, snapshot/state JSON), records(run UNIQUE, 층수/결과/결정). 종료/포기/100층 보상은 transaction에서 정확히1회 지급. 강화 구매는 아직 미구현.
+- API: POST /runs(계정revision), GET /runs/active 및 /runs/:id, POST /runs/:id/battle-action, /select-reward, /abandon(도전revision), GET /records. 소유권/중복action/경합/불법행동 검사.
+- 검증: 엔진 재현성/비변이, 피해·속도·교체·DoT·기절·무력화·면역·쿨다운·궁극기·전멸, 저장/재접속/권한/중복보상/종료/100층 경계 API, 브라우저 도전→행동→복구→포기.
+- 고정 주소/터미널 종료: 소유 도메인 + named Cloudflare Tunnel. macOS launchd로 서버/터널을 로그인 세션 서비스로 등록하는 실행 가능한 설치 스크립트와 문서를 제공. Mac 꺼짐/절전/로그아웃 시 중단되는 조건은 명시한다. 실제 도메인 등록/서비스 실행은 사용자의 Mac에서 수행한다.

@@ -10,9 +10,10 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3002",
     headless: true,
-    launchOptions: process.env.CHROMIUM_PATH
-      ? { executablePath: process.env.CHROMIUM_PATH }
-      : undefined,
+    launchOptions: {
+      executablePath: process.env.CHROMIUM_PATH || undefined,
+      args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+    },
     trace: "retain-on-failure",
   },
   webServer: {

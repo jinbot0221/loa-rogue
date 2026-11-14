@@ -3,11 +3,17 @@ import { createRoot } from "react-dom/client";
 import { create } from "zustand";
 import {
   validateParty,
+  HERO_SKILLS,
+  PASSIVES,
+  type RunView,
+  type RunRecord,
+  type BattleAction,
   type Account,
   type Hero,
   type HeroId,
 } from "@loa/shared";
 import { api, ApiError } from "./api";
+import { BattleView } from "./BattleView";
 import "./style.css";
 const useSession = create<{
   account: Account | null;
@@ -23,9 +29,18 @@ function App() {
   const [heroes, setHeroes] = useState<Hero[]>([]),
     [draft, setDraft] = useState<HeroId[]>([]),
     [tab, setTab] = useState<"party" | "codex">("party");
+  const [run, setRun] = useState<RunView | null>(null);
+  const [records, setRecords] = useState<RunRecord[]>([]);
+  const [battleOpen, setBattleOpen] = useState(false);
   async function load() {
     const me = await api<{ account: Account }>("/auth/me");
     const data = await api<{ heroes: Hero[] }>("/heroes");
+    const [active, history] = await Promise.all([
+      api<{ run: RunView | null }>("/runs/active"),
+      api<{ records: RunRecord[] }>("/records"),
+    ]);
+    setRun(active.run);
+    setRecords(history.records);
     setAccount(me.account);
     setDraft(me.account.party);
     setHeroes(data.heroes);
@@ -49,12 +64,30 @@ function App() {
       if (e instanceof ApiError && e.status === 409 && account) {
         try {
           await load();
-          setNotice("서버의 최신 편성을 불러왔습니다.");
+          setNotice("서버의 최신 상태를 불러왔습니다. 다시 선택하세요.");
         } catch {}
       }
     } finally {
       setBusy(false);
     }
+  }
+  function runCommand(path: string, body: Record<string, unknown> = {}) {
+    void act(async () => {
+      const result = await api<{ run: RunView; account: Account }>(
+        path,
+        "POST",
+        {
+          ...body,
+          actionId: crypto.randomUUID(),
+          revision: path === "/runs" ? account!.revision : run!.revision,
+        },
+      );
+      setRun(result.run);
+      setAccount(result.account);
+      setBattleOpen(true);
+      if (result.run.status !== "active")
+        setRecords((await api<{ records: RunRecord[] }>("/records")).records);
+    });
   }
   function authenticate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,7 +142,7 @@ function App() {
               <small>THE ARK CHRONICLES</small>
             </span>
           </a>
-          <span className="build-tag">개발 프리뷰 · PHASE 1</span>
+          <span className="build-tag">개발 프리뷰 · PHASE 2</span>
           {account && (
             <div className="profile">
               <span>{account.nickname}</span>
@@ -123,6 +156,8 @@ function App() {
                       revision: account.revision,
                     });
                     setAccount(null);
+                    setRun(null);
+                    setBattleOpen(false);
                     setHeroes([]);
                     setDraft([]);
                   })
@@ -264,11 +299,36 @@ function App() {
                 </button>
               </form>
               <p className="phase-note">
-                현재는 계정·영웅 도감·파티 편성까지 이용 가능합니다.
+                계정·영웅 도감·파티 편성과 전투 도전을 이용할 수 있습니다.
                 <br />
-                던전과 전투는 다음 단계에서 추가됩니다.
+                100층 전투 경로 · 일반층 이벤트와 장비는 개발 예정입니다.
               </p>
             </section>
+          </main>
+        ) : battleOpen && run ? (
+          <main className="lobby">
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {notice && (
+              <p className="success" role="status">
+                {notice}
+              </p>
+            )}
+            <BattleView
+              run={run}
+              busy={busy}
+              onHome={() => setBattleOpen(false)}
+              onAction={(action: BattleAction) =>
+                runCommand(`/runs/${run.id}/battle-action`, { action })
+              }
+              onReward={(choice) =>
+                runCommand(`/runs/${run.id}/select-reward`, { choice })
+              }
+              onAbandon={() => runCommand(`/runs/${run.id}/abandon`)}
+            />
           </main>
         ) : (
           <main className="lobby">
@@ -381,7 +441,11 @@ function App() {
                             <p className="codex-note">
                               기본 코스트 {hero.cost} · 최소 {hero.minCost}
                               <br />
-                              스킬·3D 모델은 후속 단계 예정
+                              {HERO_SKILLS[hero.id]
+                                .map((s) => s.name)
+                                .join(" · ")}
+                              <br />
+                              {PASSIVES[hero.id]}
                             </p>
                           )}
                         </div>
@@ -501,12 +565,61 @@ function App() {
                   </>
                 )}
                 <div className="next-phase">
-                  <span>다음 업데이트</span>
-                  <strong>균열의 첫 번째 전투</strong>
-                  <p>도전 시작 · 전투는 Phase 2부터 구현됩니다.</p>
+                  <span>RIFT EXPEDITION</span>
+                  {run?.status === "active" ? (
+                    <>
+                      <strong>{run.floor}층 도전 진행 중</strong>
+                      <button
+                        className="primary wide"
+                        disabled={busy}
+                        onClick={() => setBattleOpen(true)}
+                      >
+                        도전 이어하기
+                      </button>
+                      <p>진행 편성은 시작 시 고정됩니다.</p>
+                    </>
+                  ) : (
+                    <>
+                      <strong>첫 번째 균열을 향해</strong>
+                      <button
+                        className="primary wide"
+                        disabled={busy || dirty || !!invalid}
+                        onClick={() => runCommand("/runs")}
+                      >
+                        도전 시작
+                      </button>
+                      <p>
+                        {dirty
+                          ? "먼저 변경한 파티를 저장하세요."
+                          : "저장된 파티로 1층 전투를 시작합니다."}
+                      </p>
+                    </>
+                  )}
+                  <p>전투 경로 프리뷰 · 이벤트/장비는 후속 단계</p>
                 </div>
               </aside>
             </div>
+            <details className="records">
+              <summary>최근 도전 기록 ({records.length})</summary>
+              {records.length ? (
+                records.map((record) => (
+                  <p key={record.run_id}>
+                    {new Date(record.created_at).toLocaleString()} ·{" "}
+                    {record.highest_floor}층 ·{" "}
+                    {
+                      {
+                        cleared: "클리어",
+                        defeated: "전멸",
+                        abandoned: "포기",
+                      }[record.outcome]
+                    }{" "}
+                    · 결정 +{record.crystals_awarded}
+                  </p>
+                ))
+              ) : (
+                <p>아직 종료한 도전이 없습니다.</p>
+              )}
+            </details>
           </main>
         )}
         <footer>
@@ -514,7 +627,7 @@ function App() {
             LOA ROGUE <span className="footer-dot">·</span> 자체 제작 UI / 원작
             에셋 미사용
           </span>
-          <span>PHASE 1 — ACCOUNT & PARTY</span>
+          <span>PHASE 2 — RIFT EXPEDITION</span>
         </footer>
       </div>
     </>

@@ -149,3 +149,20 @@ export function validateParty(
     return "파티 코스트는 15 이하여야 합니다.";
   return null;
 }
+
+export * from "./combat.js";
+export const battleActionSchema = mutationSchema
+  .extend({
+    action: z.discriminatedUnion("type", [
+      z.object({ type: z.literal("attack") }).strict(),
+      z
+        .object({ type: z.literal("skill"), skillId: z.string().max(40) })
+        .strict(),
+      z.object({ type: z.literal("switch"), heroId: heroIdSchema }).strict(),
+      z.object({ type: z.literal("potion") }).strict(),
+    ]),
+  })
+  .strict();
+export const rewardSchema = mutationSchema
+  .extend({ choice: z.enum(["heal", "gauge", "gold"]) })
+  .strict();

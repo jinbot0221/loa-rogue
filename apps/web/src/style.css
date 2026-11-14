@@ -891,3 +891,332 @@ footer {
     position: static;
   }
 }
+
+.battle-screen {
+  padding: 0 0 20px;
+}
+.battle-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.battle-heading h1 {
+  font-size: 30px;
+  margin-bottom: 6px;
+}
+.battle-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 20px;
+}
+.battle-field {
+  min-width: 0;
+}
+.battle-vitals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.vitals {
+  background: #172233;
+  border: 1px solid #344155;
+  border-radius: 7px;
+  padding: 14px;
+}
+.vitals > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.vitals h2 {
+  font-size: 17px;
+}
+.vitals > div > span {
+  font-size: 9px;
+  color: #d9ad62;
+}
+.vitals label {
+  font-size: 10px;
+  margin: 7px 0;
+  gap: 3px;
+}
+.vitals small {
+  font-size: 10px;
+  color: #b5a1cd;
+}
+.vitals progress {
+  width: 100%;
+  height: 8px;
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #303b50;
+}
+.vitals progress::-webkit-progress-bar {
+  background: #303b50;
+}
+.vitals progress::-webkit-progress-value {
+  background: #75b794;
+}
+.vitals .stagger-bar progress::-webkit-progress-value {
+  background: #80acdd;
+}
+.vitals progress::-moz-progress-bar {
+  background: #75b794;
+}
+.scene-wrapper {
+  height: 290px;
+  background: radial-gradient(ellipse at center, #25354f, #111a2a);
+  position: relative;
+  border: 1px solid #344155;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 14px;
+}
+.scene-quality {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 2;
+  font-size: 10px;
+  min-height: 44px;
+  background: #111827aa;
+}
+.scene-caption {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  color: #a6b2c5;
+}
+.battle-fallback {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+.battle-fallback > div {
+  display: grid;
+  justify-items: center;
+  color: #d9ad62;
+}
+.battle-fallback > div:last-child {
+  color: #d37c96;
+}
+.battle-fallback span {
+  font-size: 80px;
+}
+.battle-fallback strong {
+  font-size: 16px;
+}
+.battle-fallback > b {
+  font-size: 15px;
+  color: #8994a7;
+}
+.enemy-intent {
+  background: #d9ad620b;
+  color: #d9ad62;
+  border: 1px solid #d9ad6233;
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.passive {
+  font-size: 11px;
+  color: #b4c0d1;
+  margin: 12px 0;
+}
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.action-grid button {
+  min-height: 65px;
+  text-align: left;
+  font-size: 12px;
+  padding: 10px;
+}
+.action-grid small {
+  display: block;
+  font-size: 9px;
+  color: #91a1ba;
+  margin-top: 3px;
+}
+.action-grid .ultimate {
+  border-color: #b58b50;
+  color: #e7bb77;
+}
+.battle-party {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+.battle-party button {
+  flex: 1;
+  min-width: 115px;
+  text-align: left;
+  font-size: 12px;
+}
+.battle-party small {
+  display: block;
+  color: #9caac0;
+  font-size: 10px;
+}
+.battle-party [aria-pressed="true"] {
+  border-color: #d9ad62;
+}
+.battle-log {
+  border: 1px solid #344155;
+  border-radius: 7px;
+  background: #111b29;
+  padding: 18px;
+  align-self: start;
+}
+.battle-log h2 {
+  font-size: 16px;
+}
+.battle-log ol {
+  list-style: none;
+  margin: 15px 0;
+  padding: 0;
+  max-height: 560px;
+  overflow: auto;
+}
+.battle-log li {
+  font-size: 11px;
+  line-height: 1.8;
+  padding: 6px 0;
+  border-bottom: 1px solid #27364a;
+  color: #b6c2d3;
+}
+.battle-log small {
+  color: #7c8ca2;
+}
+.battle-log .log-status {
+  color: #d4a5de;
+}
+.battle-log .log-heal {
+  color: #95c8a7;
+}
+.battle-log .log-system {
+  color: #d9ad62;
+}
+.abandon-control {
+  border-top: 1px solid #344155;
+  padding-top: 12px;
+}
+.abandon-control p {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.battle-reward,
+.run-result {
+  padding: 20px;
+  background: #d9ad620a;
+  border: 1px solid #b38d4f;
+  border-radius: 8px;
+  margin-top: 14px;
+}
+.battle-reward h2,
+.run-result h2 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+.battle-reward .action-grid {
+  margin-top: 12px;
+}
+.run-result strong {
+  display: block;
+  font-size: 24px;
+  color: #d9ad62;
+  margin: 12px 0;
+}
+.records {
+  margin-top: 25px;
+  border-top: 1px solid #354155;
+  padding-top: 15px;
+  color: #9caac0;
+  font-size: 12px;
+}
+.records summary {
+  cursor: pointer;
+  min-height: 44px;
+}
+.records p {
+  padding: 8px 0;
+}
+.next-phase .primary {
+  margin-top: 12px;
+}
+.codex-note {
+  line-height: 1.8;
+}
+@media (max-width: 1000px) {
+  .battle-layout {
+    grid-template-columns: minmax(0, 1fr) 210px;
+    gap: 12px;
+  }
+  .battle-log {
+    padding: 12px;
+  }
+  .battle-vitals {
+    gap: 10px;
+  }
+  .scene-wrapper {
+    height: 240px;
+  }
+  .battle-heading h1 {
+    font-size: 25px;
+  }
+}
+@media (max-width: 650px) {
+  .battle-layout {
+    grid-template-columns: 1fr;
+  }
+  .battle-log ol {
+    max-height: 200px;
+  }
+  .vitals {
+    padding: 10px;
+  }
+  .vitals h2 {
+    font-size: 14px;
+  }
+  .scene-wrapper {
+    height: 220px;
+  }
+  .action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .battle-heading {
+    align-items: start;
+  }
+  .battle-heading .eyebrow {
+    font-size: 8px;
+  }
+  .battle-heading button {
+    font-size: 10px;
+  }
+  .battle-party button {
+    min-width: 100px;
+  }
+}
+@media (max-height: 450px) and (orientation: landscape) {
+  .scene-wrapper {
+    height: 190px;
+  }
+  .battle-heading {
+    margin-bottom: 12px;
+  }
+  .vitals {
+    padding: 9px 12px;
+  }
+  .battle-log ol {
+    max-height: 400px;
+  }
+}

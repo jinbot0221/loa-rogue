@@ -17,6 +17,7 @@ import {
   type Account,
   type HeroId,
 } from "@loa/shared";
+import { registerRunRoutes } from "./runs.js";
 import { openDatabase, transaction } from "./db.js";
 
 interface Config {
@@ -215,7 +216,7 @@ export async function createApp(config: Config) {
   };
   app.get("/api/health", async () => {
     db.prepare("SELECT 1").get();
-    return { status: "ok", phase: 1 };
+    return { status: "ok", phase: 2 };
   });
   app.post("/api/auth/register", authLimit, async (req, reply) => {
     const body = registerSchema.parse(req.body);
@@ -336,6 +337,11 @@ export async function createApp(config: Config) {
       return { account: account(id) };
     });
     return reply.code(result.code).send(result.body);
+  });
+  registerRunRoutes(app, db, {
+    userId: (req) => session(req.cookies.loa_session).user_id,
+    account,
+    mutation,
   });
   const webRoot = resolve("apps/web/dist");
   if (existsSync(webRoot)) {
