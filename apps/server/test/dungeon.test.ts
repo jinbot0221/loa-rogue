@@ -127,6 +127,7 @@ function modify(
 async function room(c: Context, type: EventType) {
   modify(c, (w) => {
     w.phase = "choice";
+    w.map = undefined;
     w.candidates = [{ id: `fixture_${type}`, type }];
   });
   await refresh(c);
@@ -709,4 +710,69 @@ test("equipped crafting materials, mismatched recipe parts and repeated material
       400,
     );
     assert.equal((await refresh(c)).equipment!.length, 3);
+  }));
+
+test("route traversal stores a chosen lane, rejects disconnected/future rooms and preserves the public map on reload", () =>
+  fixture(async (c) => {
+    const map = c.run.dungeon!.map!;
+    assert.equal(map.layers.length, 10);
+    const first = c.run.dungeon!.candidates[0];
+    await command(c, "select-event", { candidateId: first.id });
+    // Complete this test encounter through a controlled victory, preserving real route state.
+    modify(c, (_w, b) => {
+      b.enemies = b.enemies.slice(0, 1);
+      b.enemies[0].hp = 1;
+      b.party[0].speed = 999;
+    });
+    await refresh(c);
+    await command(c, "battle-action", { action: { type: "attack" } });
+    await command(c, "select-reward", { choice: "heal" });
+    assert.equal(c.run.floor, 2);
+    assert.equal(c.run.dungeon!.candidates.length, 2);
+    const secondMap = c.run.dungeon!.map!;
+    const disconnected = secondMap.layers.find((l) => l.floor === 2)!.nodes[2];
+    await command(c, "select-event", { candidateId: disconnected.id }, 400);
+    await command(
+      c,
+      "select-event",
+      { candidateId: secondMap.layers.find((l) => l.floor === 3)!.nodes[0].id },
+      400,
+    );
+    const expected = structuredClone(c.run);
+    await refresh(c);
+    assert.deepEqual(c.run, expected);
+    assert.equal(c.run.dungeon!.map!.visits[0].nodeId, first.id);
+    // Even a corrupted current candidate list cannot bypass the connection check.
+    modify(c, (w) => {
+      w.candidates.push({
+        id: disconnected.id,
+        type: disconnected.type as EventType,
+      });
+    });
+    await refresh(c);
+    await command(c, "select-event", { candidateId: disconnected.id }, 400);
+  }));
+
+test("pre-map active room keeps its candidates and gains the correct current marker without resetting the fight", () =>
+  fixture(async (c) => {
+    const candidate = c.run.dungeon!.candidates[0];
+    await command(c, "select-event", { candidateId: candidate.id });
+    const confirmed = structuredClone(c.run.battle);
+    modify(c, (w) => {
+      w.map = undefined;
+    });
+    await refresh(c);
+    assert.deepEqual(c.run.battle, confirmed);
+    assert.equal(c.run.dungeon!.map!.visits[0].nodeId, candidate.id);
+    modify(c, (_w, b) => {
+      b.enemies = b.enemies.slice(0, 1);
+      b.enemies[0].hp = 1;
+      b.party[0].speed = 999;
+    });
+    await refresh(c);
+    await command(c, "battle-action", { action: { type: "attack" } });
+    await command(c, "select-reward", { choice: "heal" });
+    assert.equal(c.run.floor, 2);
+    assert.equal(c.run.dungeon!.map!.visits[0].nodeId, candidate.id);
+    assert.equal(c.run.dungeon!.candidates.length, 2);
   }));

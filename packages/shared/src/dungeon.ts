@@ -374,6 +374,25 @@ export const RANDOM_EVENTS: RandomEvent[] = [
     ],
   },
 ];
+export interface MapNode {
+  id: string;
+  floor: number;
+  lane: number;
+  type: EventType | "boss";
+}
+export interface MapLayer {
+  floor: number;
+  nodes: MapNode[];
+}
+export interface MapVisit {
+  floor: number;
+  nodeId: string;
+  lane: number;
+}
+export interface DungeonRoute {
+  layers: MapLayer[];
+  visits: MapVisit[];
+}
 export interface DungeonState {
   version: 1;
   phase:
@@ -393,6 +412,7 @@ export interface DungeonState {
   message: string;
   rewardChoices: RewardKind[];
   battleBonusGold: number;
+  map?: DungeonRoute;
 }
 export type PublicDungeon = Omit<DungeonState, "baseParty"> & {
   rift?: RandomEvent;

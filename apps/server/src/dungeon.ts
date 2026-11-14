@@ -27,7 +27,12 @@ import {
   type GearStats,
   type RewardKind,
 } from "@loa/shared";
-import { random, encounter } from "@loa/game-engine";
+import {
+  random,
+  encounter,
+  createDungeonMap,
+  reachableRooms,
+} from "@loa/game-engine";
 import type { RunRow, Context } from "./runs.js";
 class DungeonError extends Error {
   constructor(
@@ -75,13 +80,43 @@ export class DungeonService {
         };
       });
   }
+  ensureMap(row: RunRow, w: DungeonState) {
+    if (!w.map) {
+      w.map = createDungeonMap(row.seed, {
+        floor: row.floor,
+        candidates: w.candidates,
+      });
+      if (w.selected && w.phase !== "choice") {
+        const node = w.map.layers
+          .find((l) => l.floor === row.floor)
+          ?.nodes.find((n) => n.type === w.selected);
+        if (node)
+          w.map.visits.push({
+            floor: row.floor,
+            nodeId: node.id,
+            lane: node.lane,
+          });
+      }
+    }
+    return w.map;
+  }
   public(row: RunRow): { dungeon?: PublicDungeon; equipment: Equipment[] } {
     const w = this.state(row);
     if (!w) return { equipment: this.inventory(row.id) };
+    const map = this.ensureMap(row, w),
+      start = Math.floor((row.floor - 1) / 10) * 10 + 1;
     const { baseParty: _, ...view } = w;
     return {
       dungeon: {
         ...view,
+        map: {
+          layers: map.layers.filter(
+            (l) => l.floor >= start && l.floor < start + 10,
+          ),
+          visits: map.visits.filter(
+            (v) => v.floor >= start - 1 && v.floor < start + 10,
+          ),
+        },
         rift: w.riftId
           ? RANDOM_EVENTS.find((e) => e.id === w.riftId)
           : undefined,
@@ -133,28 +168,28 @@ export class DungeonService {
           : "이 층에서 진행할 이벤트를 하나 선택하세요.",
       rewardChoices: [],
       battleBonusGold: 0,
+      map: old
+        ? this.ensureMap({ ...row, floor: row.floor - 1 }, old)
+        : createDungeonMap(row.seed),
     };
     row.battle_json = JSON.stringify(
       encounter(b.party, row.floor, b.rng, b.potions),
     );
     row.stage = "battle";
-    if (w.phase === "choice") {
-      w.candidates = [{ id: `f${row.floor}_battle`, type: "battle" }];
-      const pool = (Object.keys(EVENT_INFO) as EventType[]).filter(
-        (t) => t !== "battle",
-      );
-      while (w.candidates.length < 3) {
-        const sum = pool.reduce((n, t) => n + EVENT_INFO[t].weight, 0);
-        let value = this.roll(row) * sum;
-        let i = 0;
-        for (; i < pool.length - 1; i++) {
-          value -= EVENT_INFO[pool[i]].weight;
-          if (value < 0) break;
-        }
-        const type = pool.splice(i, 1)[0];
-        w.candidates.push({ id: `f${row.floor}_${type}`, type });
-      }
-    }
+    if (w.phase === "choice")
+      w.candidates = reachableRooms(w.map!, row.floor).map((n) => ({
+        id: n.id,
+        type: n.type as EventType,
+      }));
+    else if (
+      w.selected === "boss" &&
+      !w.map!.visits.some((v) => v.floor === row.floor)
+    )
+      w.map!.visits.push({
+        floor: row.floor,
+        nodeId: `f${row.floor}_boss`,
+        lane: 1,
+      });
     this.write(row, w);
     this.recalculate(row, w);
   }
@@ -309,6 +344,11 @@ export class DungeonService {
     const option =
       w.candidates.find((c) => c.id === candidateId) ??
       fail("후보에 없는 이벤트입니다.");
+    const map = this.ensureMap(row, w);
+    const node =
+      reachableRooms(map, row.floor).find((n) => n.id === option.id) ??
+      fail("현재 위치에서 연결된 방만 선택할 수 있습니다.");
+    map.visits.push({ floor: row.floor, nodeId: node.id, lane: node.lane });
     w.selected = option.type;
     w.phase =
       option.type === "elite"

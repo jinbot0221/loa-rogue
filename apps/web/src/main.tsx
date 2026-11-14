@@ -15,6 +15,9 @@ import {
 } from "@loa/shared";
 import { api, ApiError } from "./api";
 import { DungeonView, Inventory, Bestiary, RecipeBook } from "./DungeonView";
+import { GameDialog } from "./GameDialog";
+import { HeroArtwork } from "./HeroArtwork";
+import { RouteMap } from "./RouteMap";
 import { BattleView } from "./BattleView";
 import "./style.css";
 const useSession = create<{
@@ -35,6 +38,16 @@ function App() {
   const [records, setRecords] = useState<RunRecord[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [battleOpen, setBattleOpen] = useState(false);
+  const [overlay, setOverlay] = useState<
+    | "inventory"
+    | "map"
+    | "menu"
+    | "abandon"
+    | "bestiary"
+    | "recipes"
+    | "records"
+    | null
+  >(null);
   async function load() {
     const me = await api<{ account: Account }>("/auth/me");
     const data = await api<{ heroes: Hero[] }>("/heroes");
@@ -90,6 +103,8 @@ function App() {
       setRun(result.run);
       setAccount(result.account);
       setBattleOpen(true);
+      if (path.endsWith("/select-event") || path.endsWith("/abandon"))
+        setOverlay(null);
       if (path.endsWith("/equipment/craft"))
         setRecipes((await api<{ recipes: Recipe[] }>("/recipes")).recipes);
       if (result.run.status !== "active")
@@ -140,7 +155,9 @@ function App() {
       <div className="rotate-hint">
         ↻ 가로 화면에서 더 넓게 플레이할 수 있습니다.
       </div>
-      <div className="app-shell">
+      <div
+        className={`app-shell ${account && battleOpen && run ? "playing" : account ? "lobby-mode" : ""}`}
+      >
         <header>
           <a className="brand" href="/" aria-label="LOA ROGUE 홈">
             <span className="brand-symbol">✧</span>
@@ -150,6 +167,22 @@ function App() {
             </span>
           </a>
           <span className="build-tag">개발 프리뷰 · DUNGEON UPDATE</span>
+          {account && battleOpen && run && (
+            <nav className="run-tools" aria-label="도전 도구">
+              <button onClick={() => setOverlay("map")}>지도</button>
+              <button onClick={() => setOverlay("inventory")}>가방</button>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setBattleOpen(false);
+                  setOverlay(null);
+                }}
+              >
+                로비로
+              </button>
+              <button onClick={() => setOverlay("menu")}>메뉴</button>
+            </nav>
+          )}
           {account && (
             <div className="profile">
               <span>{account.nickname}</span>
@@ -314,21 +347,31 @@ function App() {
           </main>
         ) : battleOpen && run ? (
           <main className="lobby">
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            {notice && (
-              <p className="success" role="status">
-                {notice}
-              </p>
+            {(error || notice) && (
+              <div className="run-alert">
+                <p
+                  className={error ? "error" : "success"}
+                  role={error ? "alert" : "status"}
+                >
+                  {error || notice}
+                </p>
+                <button
+                  aria-label="알림 닫기"
+                  onClick={() => {
+                    setError("");
+                    setNotice("");
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             )}
             {run.stage === "event" ? (
               <DungeonView
                 run={run}
                 busy={busy}
                 onHome={() => setBattleOpen(false)}
+                onInventory={() => setOverlay("inventory")}
                 onCommand={(suffix, body) =>
                   runCommand(`/runs/${run.id}/${suffix}`, body)
                 }
@@ -347,13 +390,92 @@ function App() {
                 onAbandon={() => runCommand(`/runs/${run.id}/abandon`)}
               />
             )}
-            <Inventory
-              run={run}
-              busy={busy}
-              onCommand={(suffix, body) =>
-                runCommand(`/runs/${run.id}/${suffix}`, body)
-              }
-            />
+            {overlay && (
+              <GameDialog
+                title={
+                  {
+                    inventory: "장비 가방",
+                    map: "던전 지도",
+                    menu: "도전 메뉴",
+                    abandon: "도전 포기 확인",
+                    bestiary: "몬스터 도감",
+                    recipes: "발견한 조합법",
+                    records: "도전 기록",
+                  }[overlay]
+                }
+                onClose={() => setOverlay(null)}
+              >
+                {overlay === "inventory" ? (
+                  <Inventory
+                    forceOpen
+                    run={run}
+                    busy={busy}
+                    onCommand={(suffix, body) =>
+                      runCommand(`/runs/${run.id}/${suffix}`, body)
+                    }
+                  />
+                ) : overlay === "map" ? (
+                  <RouteMap
+                    run={run}
+                    busy={busy}
+                    onChoose={(candidateId) =>
+                      runCommand(`/runs/${run.id}/select-event`, {
+                        candidateId,
+                      })
+                    }
+                  />
+                ) : overlay === "abandon" ? (
+                  <>
+                    <p>
+                      도전을 종료하고 아크의 결정 {run.completedFloor * 5}개를
+                      받습니다. 진행은 되돌릴 수 없습니다.
+                    </p>
+                    <button
+                      disabled={busy}
+                      onClick={() => runCommand(`/runs/${run.id}/abandon`)}
+                    >
+                      포기 확정
+                    </button>
+                  </>
+                ) : (
+                  <div className="run-menu">
+                    <p>
+                      {account.nickname} · {run.floor}층 · 골드 {run.gold} ·
+                      진행 자동 저장
+                    </p>
+                    {run.status === "active" && (
+                      <button
+                        disabled={busy}
+                        onClick={() => setOverlay("abandon")}
+                      >
+                        도전 포기
+                      </button>
+                    )}
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void act(async () => {
+                          await api("/auth/logout", "POST", {
+                            actionId: crypto.randomUUID(),
+                            revision: account.revision,
+                          });
+                          setAccount(null);
+                          setRun(null);
+                          setBattleOpen(false);
+                          setOverlay(null);
+                        })
+                      }
+                    >
+                      로그아웃
+                    </button>
+                    <p>
+                      가방·기록은 별도 창에서 확인합니다. 주요 전투 버튼은 가로
+                      화면 하단과 오른쪽에 있습니다.
+                    </p>
+                  </div>
+                )}
+              </GameDialog>
+            )}
           </main>
         ) : (
           <main className="lobby">
@@ -387,19 +509,33 @@ function App() {
               >
                 02 <span>영웅 도감</span>
               </button>
-              <span>서버 저장 · REV {account.revision}</span>
+              <div className="lobby-collections">
+                <button onClick={() => setOverlay("bestiary")}>몬스터</button>
+                <button onClick={() => setOverlay("recipes")}>조합법</button>
+                <button onClick={() => setOverlay("records")}>기록</button>
+              </div>
+              <span>저장된 편성</span>
             </nav>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
+            {(error || notice) && (
+              <div className="run-alert">
+                <p
+                  className={error ? "error" : "success"}
+                  role={error ? "alert" : "status"}
+                >
+                  {error || notice}
+                </p>
+                <button
+                  aria-label="알림 닫기"
+                  onClick={() => {
+                    setError("");
+                    setNotice("");
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             )}
-            {notice && (
-              <p className="success" role="status">
-                {notice}
-              </p>
-            )}
-            <div className="workspace">
+            <div className={`workspace ${tab === "codex" ? "codex-mode" : ""}`}>
               <section className="roster">
                 <div className="section-heading">
                   <div>
@@ -427,9 +563,14 @@ function App() {
                       >
                         <div className="hero-art" aria-hidden="true">
                           <span className="hero-no">0{i + 1}</span>
-                          <div className="hero-emblem">
-                            {["拳", "羽", "剣", "幻", "光", "盾"][i]}
-                          </div>
+                          <HeroArtwork
+                            heroId={hero.id}
+                            fallback={
+                              <div className="hero-emblem">
+                                {["拳", "羽", "剣", "幻", "光", "盾"][i]}
+                              </div>
+                            }
+                          />
                           <span className="hero-cost">
                             {hero.currentCost}
                             <small>COST</small>
@@ -480,24 +621,26 @@ function App() {
                 </div>
               </section>
               <aside className="party-panel">
-                <p className="eyebrow">YOUR EXPEDITION</p>
-                <h2>{tab === "party" ? "시작 파티" : "현재 편성"}</h2>
-                <div className={`cost-meter ${cost > 15 ? "over" : ""}`}>
-                  <span>편성 코스트</span>
-                  <strong>
-                    {cost}
-                    <small> / 15</small>
-                  </strong>
+                <div className="party-summary">
+                  <p className="eyebrow">YOUR EXPEDITION</p>
+                  <h2>{tab === "party" ? "시작 파티" : "현재 편성"}</h2>
+                  <div className={`cost-meter ${cost > 15 ? "over" : ""}`}>
+                    <span>편성 코스트</span>
+                    <strong>
+                      {cost}
+                      <small> / 15</small>
+                    </strong>
+                  </div>
+                  <div className="meter">
+                    <div
+                      style={{
+                        width: `${Math.min(100, (cost / 15) * 100)}%`,
+                        background: cost > 15 ? "#f18b8b" : undefined,
+                      }}
+                    />
+                  </div>
+                  <p className="muted">최대 6명 · 중복 편성 불가</p>
                 </div>
-                <div className="meter">
-                  <div
-                    style={{
-                      width: `${Math.min(100, (cost / 15) * 100)}%`,
-                      background: cost > 15 ? "#f18b8b" : undefined,
-                    }}
-                  />
-                </div>
-                <p className="muted">최대 6명 · 중복 편성 불가</p>
                 <ol className="party-slots">
                   {draft.map((id, i) => {
                     const h = heroes.find((h) => h.id === id)!;
@@ -543,7 +686,7 @@ function App() {
                   )}
                 </ol>
                 {tab === "party" && (
-                  <>
+                  <div className="party-save-controls">
                     <p
                       className={
                         invalid ? "validation error" : "validation muted"
@@ -587,7 +730,7 @@ function App() {
                     >
                       변경 취소
                     </button>
-                  </>
+                  </div>
                 )}
                 <div className="next-phase">
                   <span>RIFT EXPEDITION</span>
@@ -624,31 +767,50 @@ function App() {
                 </div>
               </aside>
             </div>
-            <Bestiary />
-            <RecipeBook recipes={recipes} />
-            <details className="records">
-              <summary>최근 도전 기록 ({records.length})</summary>
-              {records.length ? (
-                records.map((record) => (
-                  <p key={record.run_id}>
-                    {new Date(record.created_at).toLocaleString()} ·{" "}
-                    {record.highest_floor}층 ·{" "}
-                    {
-                      {
-                        cleared: "클리어",
-                        defeated: "전멸",
-                        abandoned: "포기",
-                      }[record.outcome]
-                    }{" "}
-                    · 결정 +{record.crystals_awarded}
-                  </p>
-                ))
-              ) : (
-                <p>아직 종료한 도전이 없습니다.</p>
-              )}
-            </details>
           </main>
         )}
+        {account &&
+          !battleOpen &&
+          overlay &&
+          ["bestiary", "recipes", "records"].includes(overlay) && (
+            <GameDialog
+              title={
+                overlay === "bestiary"
+                  ? "몬스터 도감"
+                  : overlay === "recipes"
+                    ? "발견한 조합법"
+                    : "도전 기록"
+              }
+              onClose={() => setOverlay(null)}
+            >
+              {overlay === "bestiary" ? (
+                <Bestiary forceOpen />
+              ) : overlay === "recipes" ? (
+                <RecipeBook forceOpen recipes={recipes} />
+              ) : (
+                <details className="records" open>
+                  <summary>최근 도전 기록 ({records.length})</summary>
+                  {records.length ? (
+                    records.map((r) => (
+                      <p key={r.run_id}>
+                        {r.highest_floor}층 ·{" "}
+                        {
+                          {
+                            cleared: "클리어",
+                            defeated: "전멸",
+                            abandoned: "포기",
+                          }[r.outcome]
+                        }{" "}
+                        · 결정 +{r.crystals_awarded}
+                      </p>
+                    ))
+                  ) : (
+                    <p>아직 종료한 도전이 없습니다.</p>
+                  )}
+                </details>
+              )}
+            </GameDialog>
+          )}
         <footer>
           <span>
             LOA ROGUE <span className="footer-dot">·</span> 자체 제작 UI / 원작

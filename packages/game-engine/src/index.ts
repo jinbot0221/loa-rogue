@@ -524,3 +524,5 @@ export function step(input: BattleState, action: BattleAction): BattleState {
   }
   return b;
 }
+
+export * from "./map.js";

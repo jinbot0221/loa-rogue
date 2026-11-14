@@ -1,6 +1,8 @@
 import React, { useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type { Group } from "three";
+import { HERO_ARTWORK } from "./art/heroes";
+import { HeroArtwork } from "./HeroArtwork";
 import { HEROES, type Fighter, type PublicBattle } from "@loa/shared";
 function Model({
   fighter,
@@ -221,10 +223,21 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
   const [supported] = useState(hasWebGL);
   const hero = battle.party[battle.activeHero],
     enemy = battle.enemies[battle.activeEnemy];
+  const [artFailures, setArtFailures] = useState<Record<string, boolean>>({});
+  const hasHeroArt =
+    !!HERO_ARTWORK[hero.heroId as keyof typeof HERO_ARTWORK] &&
+    !artFailures[hero.id];
   const fallback = (
     <div className="battle-fallback">
       <div>
-        <span>⚔</span>
+        <HeroArtwork
+          key={hero.id}
+          heroId={hero.heroId as import("@loa/shared").HeroId}
+          fallback={<span>⚔</span>}
+          onUnavailable={() =>
+            setArtFailures((prev) => ({ ...prev, [hero.id]: true }))
+          }
+        />
         <strong>{hero.name}</strong>
       </div>
       <b>VS</b>
@@ -265,16 +278,18 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
               <ringGeometry args={[2.7, 2.74, 32]} />
               <meshBasicMaterial color="#b79760" />
             </mesh>
-            <Model
-              key={hero.id}
-              fighter={hero}
-              x={-1.4}
-              tick={
-                battle.logs
-                  .filter((l) => l.actor === hero.id && l.kind === "attack")
-                  .at(-1)?.id ?? 0
-              }
-            />
+            {!hasHeroArt && (
+              <Model
+                key={hero.id}
+                fighter={hero}
+                x={-1.4}
+                tick={
+                  battle.logs
+                    .filter((l) => l.actor === hero.id && l.kind === "attack")
+                    .at(-1)?.id ?? 0
+                }
+              />
+            )}
             <Model
               key={enemy.id}
               fighter={enemy}
@@ -290,6 +305,18 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
         </SceneBoundary>
       ) : (
         fallback
+      )}
+      {hasHeroArt && mode === "3d" && supported && (
+        <div className="sd-battle-overlay">
+          <HeroArtwork
+            key={hero.id}
+            heroId={hero.heroId as import("@loa/shared").HeroId}
+            fallback={<span>{hero.name}</span>}
+            onUnavailable={() =>
+              setArtFailures((prev) => ({ ...prev, [hero.id]: true }))
+            }
+          />
+        </div>
       )}
       {!supported && (
         <small className="scene-caption">

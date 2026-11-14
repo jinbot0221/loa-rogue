@@ -1,3 +1,4 @@
+import { enterRoom } from "./ui-helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
@@ -32,6 +33,7 @@ async function fixtureChoice(page: Page, id: string, type: string) {
     const row = db.prepare("SELECT dungeon_json FROM runs WHERE id=?").get(id)!;
     const w = JSON.parse(String(row.dungeon_json));
     w.phase = "choice";
+    w.map = undefined;
     w.selected = undefined;
     w.candidates = [
       { id: `ui_${type}`, type },
@@ -60,22 +62,23 @@ test("three saved candidates, treasure item equip/unequip, fixed shop stock and 
 }) => {
   await page.setViewportSize({ width: 844, height: 390 });
   const id = await start(page, "gear");
-  await expect(page.locator(".event-candidates>button")).toHaveCount(3);
-  const initial = await page.locator(".event-candidates").innerText();
+  await expect(page.locator(".map-node.reachable")).toHaveCount(3);
+  const initial = await page.locator(".route-graph").innerText();
   await page.reload();
   await page.getByRole("button", { name: "도전 이어하기" }).click();
-  expect(await page.locator(".event-candidates").innerText()).toBe(initial);
+  expect(await page.locator(".route-graph").innerText()).toBe(initial);
   await fixtureChoice(page, id, "treasure");
-  await page.getByRole("button", { name: /보물방.*장비1개/ }).click();
+  await enterRoom(page, "treasure");
   await page.getByRole("button", { name: "보물 열기", exact: true }).click();
-  await page.locator(".inventory-panel>summary").click();
+  await page.getByRole("button", { name: "가방", exact: true }).click();
   await expect(page.locator(".gear-card")).toHaveCount(1);
   await page.getByRole("button", { name: "장착", exact: true }).click();
   await expect(page.locator(".gear-card")).toContainText("장착: 웨이");
   await page.getByRole("button", { name: "장착 해제", exact: true }).click();
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
   await page.getByRole("button", { name: "다음 층으로" }).click();
   await fixtureChoice(page, id, "shop");
-  await page.getByRole("button", { name: /상점.*골드로 고정/ }).click();
+  await enterRoom(page, "shop");
   const offers = await page.locator(".shop-grid").innerText();
   await page.reload();
   await page.getByRole("button", { name: "도전 이어하기" }).click();
@@ -88,7 +91,7 @@ test("three saved candidates, treasure item equip/unequip, fixed shop stock and 
   await expect(page.locator(".shop-grid .event-panel").nth(1)).toContainText(
     "품절",
   );
-  await page.locator(".inventory-panel>summary").click();
+  await page.getByRole("button", { name: "가방", exact: true }).click();
   await expect(page.locator(".gear-card")).toHaveCount(2);
   await page.screenshot({
     path: "/tmp/loa-shop-inventory.png",
@@ -110,7 +113,8 @@ test("forge selects actual three materials, fuses once and crafts a recipe saved
     seedGear(id, t),
   );
   await fixtureChoice(page, id, "forge");
-  await page.getByRole("button", { name: /대장간.*장비3개/ }).click();
+  await enterRoom(page, "forge");
+  await page.getByRole("button", { name: "가방", exact: true }).click();
   for (const itemId of fuseIds)
     await page.getByTestId(`gear-${itemId}`).getByRole("checkbox").check();
   await page
@@ -128,29 +132,31 @@ test("forge selects actual three materials, fuses once and crafts a recipe saved
       .locator(".gear-card")
       .filter({ has: page.getByRole("heading", { name: "태양의 서약" }) }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
   await page.getByRole("button", { name: /로비로/ }).click();
-  await page.getByText("발견한 조합법 (1/3)", { exact: true }).click();
+  await page.getByRole("button", { name: "조합법", exact: true }).click();
   await expect(
-    page
-      .locator(".records")
-      .filter({ has: page.getByText("발견한 조합법 (1/3)", { exact: true }) }),
+    page.getByRole("dialog", { name: "발견한 조합법" }).locator(".records"),
   ).toContainText("태양의 서약");
-  await page
-    .getByText("몬스터 도감 · 일반30 / 정예10 / 보스10", { exact: true })
-    .click();
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
+  await page.getByRole("button", { name: "몬스터", exact: true }).click();
   await page
     .getByRole("combobox", { name: "몬스터 분류", exact: true })
     .selectOption("boss");
-  await expect(page.locator(".monster-grid>.monster-entry")).toHaveCount(10);
+  await expect(
+    page
+      .getByRole("dialog", { name: "몬스터 도감" })
+      .locator(".monster-grid>.monster-entry"),
+  ).toHaveCount(10);
 });
 test("mystery stays hidden until entry, actual random choice resolves once and survives reconnect", async ({
   page,
 }) => {
   const id = await start(page, "rift");
   await fixtureChoice(page, id, "rift");
-  await expect(page.locator(".event-candidates")).toContainText("???");
+  await expect(page.locator(".route-graph")).toContainText("???");
   const entry = page.waitForResponse((r) => r.url().endsWith("/select-event"));
-  await page.getByRole("button", { name: /\?\?\?.*진입한 뒤/ }).click();
+  await enterRoom(page, "rift");
   const run = (await (await entry).json()).run;
   expect(run.dungeon.rift).toBeTruthy();
   await page.reload();

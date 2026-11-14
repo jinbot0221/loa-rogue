@@ -1,3 +1,4 @@
+import { enterRoom } from "./ui-helpers";
 import { test, expect } from "@playwright/test";
 test("new run, 3D scene, server actions, reload resume, victory reward and abandon record", async ({
   page,
@@ -12,7 +13,7 @@ test("new run, 3D scene, server actions, reload resume, victory reward and aband
   await page.getByLabel("비밀번호").fill("battle-password");
   await page.getByRole("button", { name: "회원가입 →" }).click();
   await page.getByRole("button", { name: "도전 시작", exact: true }).click();
-  await page.getByRole("button", { name: /일반전.*지역의 적/ }).click();
+  await enterRoom(page, "battle");
   await expect(
     page.getByRole("heading", { name: "1층 전투", exact: true }),
   ).toBeVisible();
@@ -24,9 +25,11 @@ test("new run, 3D scene, server actions, reload resume, victory reward and aband
   await page.getByRole("button", { name: /파쇄권/ }).click();
   const result = await (await respond).json();
   expect(result.run.revision).toBe(2);
+  await page.getByRole("button", { name: "전투 기록", exact: true }).click();
   await expect(page.getByRole("list", { name: "전투 기록" })).toContainText(
     "파쇄권",
   );
+  await page.getByRole("button", { name: "닫기", exact: true }).click();
   await page.screenshot({
     path: "/tmp/loa-battle-landscape.png",
     fullPage: true,
@@ -34,7 +37,7 @@ test("new run, 3D scene, server actions, reload resume, victory reward and aband
   await page.reload();
   await page.getByRole("button", { name: "도전 이어하기" }).click();
   await expect(
-    page.getByText("턴 1 · 저장 REV 2", { exact: false }),
+    page.getByText("턴 1 · 자동 저장", { exact: false }),
   ).toBeVisible();
   let run = result.run;
   for (let i = 0; i < 10 && run.stage === "battle"; i++) {
@@ -53,15 +56,14 @@ test("new run, 3D scene, server actions, reload resume, victory reward and aband
   await expect(
     page.getByRole("heading", { name: "2층 갈림길", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "메뉴", exact: true }).click();
   await page.getByRole("button", { name: "도전 포기", exact: true }).click();
   await page.getByRole("button", { name: "포기 확정", exact: true }).click();
   await expect(page.getByText("아크의 결정 +5", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "로비로", exact: true }).click();
-  await page.getByText("최근 도전 기록 (1)", { exact: true }).click();
+  await page.getByRole("button", { name: "기록", exact: true }).click();
   await expect(
-    page
-      .locator(".records")
-      .filter({ has: page.getByText("최근 도전 기록 (1)", { exact: true }) }),
+    page.getByRole("dialog", { name: "도전 기록" }).locator(".records"),
   ).toContainText("결정 +5");
   expect(
     await page.evaluate(
@@ -81,7 +83,7 @@ test("2D low graphics mode still supports switching and server-authoritative com
   await page.getByLabel("비밀번호").fill("battle-password");
   await page.getByRole("button", { name: "회원가입 →" }).click();
   await page.getByRole("button", { name: "도전 시작", exact: true }).click();
-  await page.getByRole("button", { name: /일반전.*지역의 적/ }).click();
+  await enterRoom(page, "battle");
   await expect(page.locator(".battle-fallback")).toBeVisible();
   const response = page.waitForResponse((r) =>
     r.url().endsWith("/battle-action"),
@@ -91,6 +93,7 @@ test("2D low graphics mode still supports switching and server-authoritative com
     .getByRole("button", { name: /니나브/ })
     .click();
   expect((await (await response).json()).run.battle.activeHero).toBe(1);
+  await page.getByRole("button", { name: "전투 기록", exact: true }).click();
   await expect(page.getByRole("list", { name: "전투 기록" })).toContainText(
     "자발적 교체",
   );

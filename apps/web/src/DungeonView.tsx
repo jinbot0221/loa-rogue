@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RouteMap } from "./RouteMap";
 import {
   EVENT_INFO,
   REGIONS,
@@ -28,13 +29,14 @@ export function DungeonView({
   busy,
   onCommand,
   onHome,
+  onInventory,
 }: {
   run: RunView;
   busy: boolean;
   onCommand: (suffix: string, body?: Record<string, unknown>) => void;
   onHome: () => void;
+  onInventory: () => void;
 }) {
-  const [confirm, setConfirm] = useState(false);
   const w = run.dungeon!;
   return (
     <section className="dungeon-view">
@@ -52,201 +54,161 @@ export function DungeonView({
                 ? w.rift?.name
                 : w.phase === "complete"
                   ? "이벤트 완료"
-                  : w.selected && w.selected !== "boss"
-                    ? EVENT_INFO[w.selected].name
+                  : ["shop", "forge", "rest", "treasure"].includes(w.phase)
+                    ? EVENT_INFO[
+                        w.phase as "shop" | "forge" | "rest" | "treasure"
+                      ].name
                     : "던전"}
           </h1>
           <p className="muted">
-            골드 {run.gold} · 회복약 {run.battle.potions}/9 · 저장 REV{" "}
-            {run.revision}
+            골드 {run.gold} · 회복약 {run.battle.potions}/9 · 경로 저장
           </p>
         </div>
-        <button disabled={busy} onClick={onHome}>
-          로비로 (진행 유지)
-        </button>
+        <span className="saved-label">자동 저장</span>
       </div>
-      <p className="event-message" role="status">
-        {w.message}
-      </p>
-      {w.phase === "choice" && (
-        <div className="event-candidates">
-          {w.candidates.map((c) => (
+      <div
+        className={`dungeon-scroll ${w.phase === "choice" ? "map-mode" : ""}`}
+      >
+        <p className="event-message" role="status">
+          {w.message}
+        </p>
+        {w.phase === "choice" && (
+          <RouteMap
+            run={run}
+            busy={busy}
+            onChoose={(candidateId) =>
+              onCommand("select-event", { candidateId })
+            }
+          />
+        )}
+        {w.phase === "rest" && (
+          <div className="event-panel">
+            <h2>원정대의 휴식</h2>
+            <p>생존한 영웅 전원의 최대 HP40%를 회복합니다.</p>
             <button
-              key={c.id}
+              className="primary"
               disabled={busy}
-              onClick={() => onCommand("select-event", { candidateId: c.id })}
+              onClick={() => onCommand("rest")}
             >
-              <span className="event-icon">
-                {
-                  {
-                    battle: "⚔",
-                    elite: "♜",
-                    rest: "♧",
-                    shop: "◈",
-                    forge: "⚒",
-                    treasure: "✦",
-                    rift: "?",
-                  }[c.type]
-                }
-              </span>
-              <h2>{EVENT_INFO[c.type].name}</h2>
-              <p>{EVENT_INFO[c.type].description}</p>
-              <small>이 층에서 하나만 선택 · 새로고침해도 유지</small>
+              휴식하기
             </button>
-          ))}
-        </div>
-      )}
-      {w.phase === "rest" && (
-        <div className="event-panel">
-          <h2>원정대의 휴식</h2>
-          <p>생존한 영웅 전원의 최대 HP40%를 회복합니다.</p>
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={() => onCommand("rest")}
-          >
-            휴식하기
-          </button>
-        </div>
-      )}
-      {w.phase === "treasure" && (
-        <div className="event-panel">
-          <h2>봉인된 보물 상자</h2>
-          <p>장비1개와 골드 {40 + run.floor * 5}를 받습니다.</p>
-          <button
-            className="primary"
-            disabled={busy || (run.equipment?.length ?? 0) >= 60}
-            onClick={() => onCommand("treasure/open")}
-          >
-            보물 열기
-          </button>
-          {(run.equipment?.length ?? 0) >= 60 && (
-            <p className="error">인벤토리에서 미장착 장비를 정리하세요.</p>
-          )}
-        </div>
-      )}
-      {w.phase === "shop" && (
-        <div className="shop-grid">
-          {w.offers.map((o) => (
-            <article className="event-panel" key={o.id}>
-              <h2>{o.name}</h2>
-              <p>
-                {o.equipment
-                  ? `${RARITY_NAMES[o.equipment.rarity]} · ${{ weapon: "무기", armor: "방어구", accessory: "장신구", relic: "유물" }[o.equipment.slot]}`
-                  : "HP40% 회복약 · 전투에서 사용"}
-              </p>
-              {o.equipment && <GearStatsView item={o.equipment} />}
-              <p>
-                골드 {o.price} · 재고 {o.stock}
-              </p>
-              <button
-                disabled={
-                  busy ||
-                  o.stock === 0 ||
-                  run.gold < o.price ||
-                  (o.kind === "potion"
-                    ? run.battle.potions >= 9
-                    : (run.equipment?.length ?? 0) >= 60)
-                }
-                onClick={() => onCommand("shop/buy", { offerId: o.id })}
-              >
-                {o.stock === 0
-                  ? "품절"
-                  : run.gold < o.price
-                    ? "골드 부족"
-                    : o.kind === "potion" && run.battle.potions >= 9
-                      ? "회복약 최대 수량"
-                      : "구매"}
-              </button>
-            </article>
-          ))}
-        </div>
-      )}
-      {w.phase === "forge" && (
-        <div className="event-panel">
-          <h2>대장간</h2>
-          <p>
-            아래 인벤토리에서 미장착 장비3개를 고르세요. 일반 합성은 같은
-            등급3개, 특수 제작은 레시피에 맞는3개가 필요합니다. 유물은 일반
-            합성할 수 없습니다.
-          </p>
-        </div>
-      )}
-      {w.phase === "rift" && w.rift && (
-        <div className="event-panel">
-          <h2>{w.rift.name}</h2>
-          <p>{w.rift.text}</p>
-          <div className="rift-choices">
-            {w.rift.choices.map((c) => (
-              <button
-                key={c.id}
-                disabled={
-                  busy ||
-                  run.gold < (c.cost ?? 0) ||
-                  (["gear", "relic"].includes(c.effect) &&
-                    (run.equipment?.length ?? 0) >= 60)
-                }
-                onClick={() =>
-                  onCommand("random-event/choose", { choiceId: c.id })
-                }
-              >
-                {c.label}
-                {run.gold < (c.cost ?? 0) ? " · 골드 부족" : ""}
-              </button>
+          </div>
+        )}
+        {w.phase === "treasure" && (
+          <div className="event-panel">
+            <h2>봉인된 보물 상자</h2>
+            <p>장비1개와 골드 {40 + run.floor * 5}를 받습니다.</p>
+            <button
+              className="primary"
+              disabled={busy || (run.equipment?.length ?? 0) >= 60}
+              onClick={() => onCommand("treasure/open")}
+            >
+              보물 열기
+            </button>
+            {(run.equipment?.length ?? 0) >= 60 && (
+              <p className="error">인벤토리에서 미장착 장비를 정리하세요.</p>
+            )}
+          </div>
+        )}
+        {w.phase === "shop" && (
+          <div className="shop-grid">
+            {w.offers.map((o) => (
+              <article className="event-panel" key={o.id}>
+                <h2>{o.name}</h2>
+                <p>
+                  {o.equipment
+                    ? `${RARITY_NAMES[o.equipment.rarity]} · ${{ weapon: "무기", armor: "방어구", accessory: "장신구", relic: "유물" }[o.equipment.slot]}`
+                    : "HP40% 회복약 · 전투에서 사용"}
+                </p>
+                {o.equipment && <GearStatsView item={o.equipment} />}
+                <p>
+                  골드 {o.price} · 재고 {o.stock}
+                </p>
+                <button
+                  disabled={
+                    busy ||
+                    o.stock === 0 ||
+                    run.gold < o.price ||
+                    (o.kind === "potion"
+                      ? run.battle.potions >= 9
+                      : (run.equipment?.length ?? 0) >= 60)
+                  }
+                  onClick={() => onCommand("shop/buy", { offerId: o.id })}
+                >
+                  {o.stock === 0
+                    ? "품절"
+                    : run.gold < o.price
+                      ? "골드 부족"
+                      : o.kind === "potion" && run.battle.potions >= 9
+                        ? "회복약 최대 수량"
+                        : "구매"}
+                </button>
+              </article>
             ))}
           </div>
-        </div>
-      )}
-      {["complete", "shop", "forge"].includes(w.phase) && (
-        <button
-          className="primary next-floor"
-          disabled={busy}
-          onClick={() => onCommand("continue")}
-        >
-          다음 층으로
-        </button>
-      )}
-      <div className="event-party">
-        {run.battle.party.map((h) => (
-          <div key={h.id}>
-            <strong>{h.name}</strong>
-            <span>
-              HP {h.hp}/{h.maxHp}
-            </span>
-            <small>
-              공격 {h.attack} · 방어 {h.defense} · 속도 {h.speed}
-            </small>
+        )}
+        {w.phase === "forge" && (
+          <div className="event-panel">
+            <h2>대장간</h2>
+            <p>
+              가방을 열고 미장착 장비3개를 고르세요. 일반 합성은 같은
+              등급3개, 특수 제작은 레시피에 맞는3개가 필요합니다. 유물은 일반
+              합성할 수 없습니다.
+            </p>
+            <button className="primary" onClick={onInventory}>
+              가방 · 대장간 열기
+            </button>
           </div>
-        ))}
+        )}
+        {w.phase === "rift" && w.rift && (
+          <div className="event-panel">
+            <h2>{w.rift.name}</h2>
+            <p>{w.rift.text}</p>
+            <div className="rift-choices">
+              {w.rift.choices.map((c) => (
+                <button
+                  key={c.id}
+                  disabled={
+                    busy ||
+                    run.gold < (c.cost ?? 0) ||
+                    (["gear", "relic"].includes(c.effect) &&
+                      (run.equipment?.length ?? 0) >= 60)
+                  }
+                  onClick={() =>
+                    onCommand("random-event/choose", { choiceId: c.id })
+                  }
+                >
+                  {c.label}
+                  {run.gold < (c.cost ?? 0) ? " · 골드 부족" : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-      <div className="event-abandon">
-        {confirm ? (
-          <>
-            <span>
-              포기 시 결정 {run.completedFloor * 5}개 지급 · 종료할까요?
-            </span>
-            <button
-              disabled={busy}
-              onClick={() => {
-                onCommand("abandon");
-                setConfirm(false);
-              }}
-            >
-              포기 확정
-            </button>
-            <button disabled={busy} onClick={() => setConfirm(false)}>
-              취소
-            </button>
-          </>
-        ) : (
+      <div className="dungeon-footer">
+        {["complete", "shop", "forge"].includes(w.phase) && (
           <button
-            className="quiet"
+            className="primary next-floor"
             disabled={busy}
-            onClick={() => setConfirm(true)}
+            onClick={() => onCommand("continue")}
           >
-            도전 포기
+            다음 층으로
           </button>
         )}
+        <div className="event-party">
+          {run.battle.party.map((h) => (
+            <div key={h.id}>
+              <strong>{h.name}</strong>
+              <span>
+                HP {h.hp}/{h.maxHp}
+              </span>
+              <small>
+                공격 {h.attack} · 방어 {h.defense} · 속도 {h.speed}
+              </small>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -255,10 +217,12 @@ export function Inventory({
   run,
   busy,
   onCommand,
+  forceOpen = false,
 }: {
   run: RunView;
   busy: boolean;
   onCommand: (suffix: string, body?: Record<string, unknown>) => void;
+  forceOpen?: boolean;
 }) {
   const [filter, setFilter] = useState("all"),
     [rarity, setRarity] = useState("all"),
@@ -296,7 +260,7 @@ export function Inventory({
           : old,
     );
   return (
-    <details className="inventory-panel" open={forge}>
+    <details className="inventory-panel" open={forge || forceOpen}>
       <summary>
         장비 인벤토리 ({items.length}/60) ·{" "}
         {usable ? "관리 가능" : "전투/종료 중에는 변경 불가"}
@@ -502,11 +466,11 @@ export function Inventory({
     </details>
   );
 }
-export function Bestiary() {
+export function Bestiary({ forceOpen = false }: { forceOpen?: boolean }) {
   const [rank, setRank] = useState("all"),
     [region, setRegion] = useState("all");
   return (
-    <details className="bestiary records">
+    <details className="bestiary records" open={forceOpen}>
       <summary>몬스터 도감 · 일반30 / 정예10 / 보스10</summary>
       <div className="inventory-filters">
         <label>
@@ -580,9 +544,15 @@ export function Bestiary() {
     </details>
   );
 }
-export function RecipeBook({ recipes }: { recipes: Recipe[] }) {
+export function RecipeBook({
+  recipes,
+  forceOpen = false,
+}: {
+  recipes: Recipe[];
+  forceOpen?: boolean;
+}) {
   return (
-    <details className="records">
+    <details className="records" open={forceOpen}>
       <summary>
         발견한 조합법 ({recipes.length}/{RECIPES.length})
       </summary>
