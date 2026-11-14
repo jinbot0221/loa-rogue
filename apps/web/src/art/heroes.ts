@@ -34,6 +34,12 @@ export const HERO_ARTWORK: Partial<Record<HeroId, HeroArtwork>> = {
     usageNote,
     portraitPosition: "50% 30%",
   },
+  shandi: {
+    src: "/art/heroes/shandi.webp",
+    source,
+    usageNote,
+    portraitPosition: "50% 25%",
+  },
   balthorr: {
     src: "/art/heroes/balthorr.webp",
     source,

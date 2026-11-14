@@ -69,7 +69,7 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
   await page.reload();
   await expect(page.locator(".party-slots li")).toHaveCount(6);
   const portraits = page.locator(".hero-art img");
-  await expect(portraits).toHaveCount(5);
+  await expect(portraits).toHaveCount(6);
   await expect
     .poll(() =>
       portraits.evaluateAll((nodes) =>
@@ -163,7 +163,14 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
     .getByRole("button", { name: /샨디/ })
     .click();
   expect((await swapped).status()).toBe(200);
-  await expect(page.locator(".sd-battle-overlay")).toHaveCount(0);
+  const shandiArt = page.locator('.sd-battle-overlay[data-hero="shandi"] img');
+  await expect(shandiArt).toBeVisible();
+  await expect
+    .poll(() =>
+      shandiArt.evaluate((node) => (node as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  await page.screenshot({ path: "/tmp/loa-shandi-combat.png" });
   await expect(page.locator(".scene-wrapper canvas")).toBeVisible();
   await page.route("**/art/heroes/wei.webp", (route) => route.abort());
   await page.reload();

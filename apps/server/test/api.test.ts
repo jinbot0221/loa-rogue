@@ -536,7 +536,13 @@ test("existing email accounts, sessions and saved party survive username migrati
 
 test("general request limit remains finite while allowing a normal multi-screen session", () =>
   fixture(async (app) => {
-    for (let i = 0; i < 300; i++)
+    for (let i = 0; i < 300; i++) {
+      assert.notEqual(
+        (await app.inject({ url: "/art/heroes/rate-limit-probe.webp" }))
+          .statusCode,
+        429,
+      );
       assert.equal((await app.inject({ url: "/api/health" })).statusCode, 200);
+    }
     assert.equal((await app.inject({ url: "/api/health" })).statusCode, 429);
   }));

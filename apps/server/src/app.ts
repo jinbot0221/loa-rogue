@@ -66,7 +66,20 @@ export async function createApp(config: Config) {
     trustProxy: false,
   });
   await app.register(cookie);
-  await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
+  await app.register(rateLimit, {
+    max: 300,
+    timeWindow: "1 minute",
+    // Loading the game and its sprites must not consume the API action budget.
+    allowList: (req) => {
+      const path = req.url.split("?")[0];
+      return (
+        (req.method === "GET" || req.method === "HEAD") &&
+        (path === "/" ||
+          path.startsWith("/assets/") ||
+          path.startsWith("/art/heroes/"))
+      );
+    },
+  });
   app.addHook("onClose", async () => {
     db.close();
   });
