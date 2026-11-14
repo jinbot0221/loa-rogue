@@ -68,6 +68,15 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
   expect(saved.status()).toBe(200);
   await page.reload();
   await expect(page.locator(".party-slots li")).toHaveCount(6);
+  const portraits = page.locator(".hero-art img");
+  await expect(portraits).toHaveCount(5);
+  await expect
+    .poll(() =>
+      portraits.evaluateAll((nodes) =>
+        nodes.every((node) => (node as HTMLImageElement).naturalWidth > 0),
+      ),
+    )
+    .toBe(true);
   await page.screenshot({ path: "/tmp/loa-lobby-640.png", fullPage: true });
   await inside(page, page.locator(".hero-info button"));
   await inside(
@@ -104,6 +113,9 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
       fullPage: true,
     });
   }
+  await expect(
+    page.locator('.sd-battle-overlay[data-hero="wei"] img'),
+  ).toBeVisible();
   const oldTurn = await page.locator(".battle-heading .muted").innerText();
   await page.getByRole("button", { name: "가방", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "장비 가방" })).toBeVisible();
@@ -119,4 +131,56 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
   );
   await page.getByRole("button", { name: /기본 공격/ }).click();
   expect((await (await response).json()).run.battle.turn).toBe(1);
+  for (const [id, name] of [
+    ["nineveh", "니나브"],
+    ["thirain", "실리안"],
+    ["azena_inanna", "아제나"],
+    ["balthorr", "바훈투르"],
+  ]) {
+    const swapped = page.waitForResponse((r) =>
+      r.url().endsWith("/battle-action"),
+    );
+    await page
+      .locator(".battle-party")
+      .getByRole("button", { name: new RegExp(name) })
+      .click();
+    expect((await swapped).status()).toBe(200);
+    const art = page.locator(`.sd-battle-overlay[data-hero="${id}"] img`);
+    await expect(art).toBeVisible();
+    await expect
+      .poll(() =>
+        art.evaluate((node) => (node as HTMLImageElement).naturalWidth),
+      )
+      .toBeGreaterThan(0);
+    if (id === "azena_inanna")
+      await page.screenshot({ path: "/tmp/loa-sd-duo.png" });
+  }
+  const swapped = page.waitForResponse((r) =>
+    r.url().endsWith("/battle-action"),
+  );
+  await page
+    .locator(".battle-party")
+    .getByRole("button", { name: /샨디/ })
+    .click();
+  expect((await swapped).status()).toBe(200);
+  await expect(page.locator(".sd-battle-overlay")).toHaveCount(0);
+  await expect(page.locator(".scene-wrapper canvas")).toBeVisible();
+  await page.route("**/art/heroes/wei.webp", (route) => route.abort());
+  await page.reload();
+  await page.getByRole("button", { name: "도전 이어하기" }).click();
+  const fallbackSwap = page.waitForResponse((r) =>
+    r.url().endsWith("/battle-action"),
+  );
+  await page
+    .locator(".battle-party")
+    .getByRole("button", { name: /웨이/ })
+    .click();
+  expect((await fallbackSwap).status()).toBe(200);
+  await expect(page.locator(".sd-battle-overlay")).toHaveCount(0);
+  await expect(page.locator(".scene-wrapper canvas")).toBeVisible();
+  const fallbackAttack = page.waitForResponse((r) =>
+    r.url().endsWith("/battle-action"),
+  );
+  await page.getByRole("button", { name: /기본 공격/ }).click();
+  expect((await fallbackAttack).status()).toBe(200);
 });

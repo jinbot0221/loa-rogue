@@ -194,12 +194,19 @@ function Model({
   );
 }
 class SceneBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
+  {
+    children: React.ReactNode;
+    fallback: React.ReactNode;
+    onFailure?: () => void;
+  },
   { failed: boolean }
 > {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.onFailure?.();
   }
   render() {
     return this.state.failed ? this.props.fallback : this.props.children;
@@ -221,15 +228,34 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
     () => localStorage.getItem("loa-graphics") ?? "3d",
   );
   const [supported] = useState(hasWebGL);
+  const [sceneFailed, setSceneFailed] = useState(false);
+  const can3D = supported && !sceneFailed;
   const hero = battle.party[battle.activeHero],
     enemy = battle.enemies[battle.activeEnemy];
   const [artFailures, setArtFailures] = useState<Record<string, boolean>>({});
   const hasHeroArt =
     !!HERO_ARTWORK[hero.heroId as keyof typeof HERO_ARTWORK] &&
     !artFailures[hero.id];
-  const fallback = (
-    <div className="battle-fallback">
-      <div>
+  const attack = battle.logs
+    .filter((l) => l.actor === hero.id && l.kind === "attack")
+    .at(-1);
+  const damage = battle.logs
+    .filter(
+      (l) =>
+        l.target === hero.id &&
+        (l.amount ?? 0) > 0 &&
+        (l.kind === "attack" || l.kind === "status"),
+    )
+    .at(-1);
+  const sprite = hasHeroArt ? (
+    <div
+      className={`sd-actor ${attack?.turn === battle.turn ? "attacking" : ""}`}
+      key={`${hero.id}:${attack?.id ?? 0}`}
+    >
+      <div
+        className={`sd-damage ${damage?.turn === battle.turn ? "hit" : ""}`}
+        key={damage?.id ?? 0}
+      >
         <HeroArtwork
           key={hero.id}
           heroId={hero.heroId as import("@loa/shared").HeroId}
@@ -238,6 +264,15 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
             setArtFailures((prev) => ({ ...prev, [hero.id]: true }))
           }
         />
+      </div>
+    </div>
+  ) : (
+    <span>⚔</span>
+  );
+  const fallback = (
+    <div className="battle-fallback">
+      <div>
+        {sprite}
         <strong>{hero.name}</strong>
       </div>
       <b>VS</b>
@@ -254,13 +289,17 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
         onClick={() => {
           const next = mode === "3d" ? "2d" : "3d";
           setMode(next);
+          if (next === "3d") setSceneFailed(false);
           localStorage.setItem("loa-graphics", next);
         }}
       >
-        {mode === "3d" && supported ? "3D · 저사양 모드로" : "2D · 3D 모드로"}
+        {mode === "3d" && can3D ? "3D · 저사양 모드로" : "2D · 3D 모드로"}
       </button>
-      {mode === "3d" && supported ? (
-        <SceneBoundary fallback={fallback}>
+      {mode === "3d" && can3D ? (
+        <SceneBoundary
+          fallback={fallback}
+          onFailure={() => setSceneFailed(true)}
+        >
           <Canvas
             dpr={[1, 1.25]}
             camera={{ position: [0, 3.1, 6.6], fov: 43 }}
@@ -306,19 +345,12 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
       ) : (
         fallback
       )}
-      {hasHeroArt && mode === "3d" && supported && (
-        <div className="sd-battle-overlay">
-          <HeroArtwork
-            key={hero.id}
-            heroId={hero.heroId as import("@loa/shared").HeroId}
-            fallback={<span>{hero.name}</span>}
-            onUnavailable={() =>
-              setArtFailures((prev) => ({ ...prev, [hero.id]: true }))
-            }
-          />
+      {hasHeroArt && mode === "3d" && can3D && (
+        <div className="sd-battle-overlay" data-hero={hero.id}>
+          {sprite}
         </div>
       )}
-      {!supported && (
+      {!can3D && (
         <small className="scene-caption">
           이 기기에서는 2D 전투 표시를 사용합니다.
         </small>

@@ -564,6 +564,7 @@ function App() {
                         <div className="hero-art" aria-hidden="true">
                           <span className="hero-no">0{i + 1}</span>
                           <HeroArtwork
+                            presentation="portrait"
                             heroId={hero.id}
                             fallback={
                               <div className="hero-emblem">

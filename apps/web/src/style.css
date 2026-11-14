@@ -2667,3 +2667,64 @@ select {
     font-size: 8px;
   }
 }
+.hero-art > .hero-artwork.portrait {
+  object-fit: cover;
+}
+.battle-fallback > div {
+  height: 100%;
+  min-height: 0;
+  max-width: 42%;
+  grid-template-rows: minmax(0, 1fr) 16px;
+  align-items: center;
+}
+.battle-fallback .hero-artwork {
+  height: 100%;
+  width: 100%;
+  max-width: 180px;
+  min-height: 0;
+  object-fit: contain;
+}
+.battle-fallback strong {
+  font-size: 11px;
+  line-height: 16px;
+}
+.sd-actor,
+.sd-damage {
+  height: 100%;
+  width: 100%;
+}
+.sd-actor .hero-artwork {
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+}
+.sd-actor.attacking {
+  animation: sd-strike 0.4s ease-out;
+}
+.sd-damage.hit {
+  animation: sd-hit 0.45s ease-out;
+}
+@keyframes sd-strike {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  45% {
+    transform: translateX(16px) scale(1.035);
+  }
+}
+@keyframes sd-hit {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(1.65) saturate(0.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sd-actor.attacking,
+  .sd-damage.hit {
+    animation: none;
+  }
+}
