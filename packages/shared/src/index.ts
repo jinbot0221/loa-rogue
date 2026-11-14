@@ -87,15 +87,30 @@ export const mutationSchema = z.object({
   revision: z.number().int().min(0),
 });
 export const emailSchema = z.string().trim().toLowerCase().email().max(254);
+export const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3)
+  .max(20)
+  .regex(
+    /^[a-z0-9_]+$/,
+    "아이디는 영문 소문자, 숫자, 밑줄 3~20자로 입력하세요.",
+  );
+// Existing email accounts retain their login identifier after migration.
+export const loginIdentifierSchema = z.union([usernameSchema, emailSchema]);
 export const registerSchema = mutationSchema
   .extend({
-    email: emailSchema,
+    username: usernameSchema,
     password: z.string().min(10).max(128),
     nickname: z.string().trim().min(2).max(20),
   })
   .strict();
 export const loginSchema = mutationSchema
-  .extend({ email: emailSchema, password: z.string().min(1).max(128) })
+  .extend({
+    username: loginIdentifierSchema,
+    password: z.string().min(1).max(128),
+  })
   .strict();
 export const partySchema = mutationSchema
   .extend({ heroIds: z.array(heroIdSchema).min(1).max(6) })
@@ -106,7 +121,7 @@ export type Hero = (typeof HEROES)[number] & {
 };
 export interface Account {
   id: string;
-  email: string;
+  username: string;
   nickname: string;
   crystals: number;
   revision: number;

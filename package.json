@@ -21,7 +21,8 @@
     "db:init": "node --env-file-if-exists=.env --import tsx apps/server/src/db-init.ts",
     "db:backup": "node --env-file-if-exists=.env --import tsx apps/server/src/backup.ts",
     "env:init": "node scripts/init-env.mjs",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "serve:public": "node --env-file-if-exists=.env scripts/serve-public.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

@@ -19,15 +19,15 @@
 - docs: 제품 명세 및 운영 문서.
 
 ## 스키마
-Phase 1 migration: users(이메일 unique, Argon2id, 닉네임, revision), sessions(토큰 hash, 만료/폐기), user_currencies(정수 CHECK>=0), hero_upgrades(복합 PK, 각 강화 상한), party_presets(계정 PK, 순서 JSON), processed_actions(scope+action_id PK, 요청 fingerprint, 응답/상태), schema_migrations.
+Phase 1 migration: users(username unique, Argon2id, 닉네임, revision), sessions(토큰 hash, 만료/폐기), user_currencies(정수 CHECK>=0), hero_upgrades(복합 PK, 각 강화 상한), party_presets(계정 PK, 순서 JSON), processed_actions(scope+action_id PK, 요청 fingerprint, 응답/상태), schema_migrations.
 외래키/STRICT 테이블/WAL/busy_timeout 활성화. 사용자 생성과 초기 재화/영웅 강화/파티 생성은 한 트랜잭션. 모든 상태 변경은 UUID actionId, revision과 트랜잭션 사용. 동일 actionId/동일 요청은 저장된 결과 재생, 다른 요청은409. 인증 전에는 revision=0, 계정 생성 후 revision=0. 로그인/로그아웃은 게임 revision을 바꾸지 않고 인증된 logout은 현재 revision을 요구한다. 파티 변경은 계정 revision을 검증하고 +1. 재시도 시 세션이 살아 있어야 한다.
 후속 migration: runs(partial unique active user, party snapshot, seed/rng, revision, stage/inventory/battle/pending reward JSON), run_events(run+floor PK), run_equipment, discovered_recipes, records(run UNIQUE). 지금 사용하지 않는 도전 테이블/가짜 API는 생성하지 않는다.
 
 ## API
 Phase 1:
 - GET /api/health: DB readiness
-- POST /api/auth/register {email,password,nickname,actionId,revision:0}
-- POST /api/auth/login {email,password,actionId,revision:0}
+- POST /api/auth/register {username,password,nickname,actionId,revision:0}
+- POST /api/auth/login {username,password,actionId,revision:0}
 - POST /api/auth/logout {actionId,revision}
 - GET /api/auth/me: 계정, 결정, revision, 저장 파티
 - GET /api/heroes: 인증 후 6영웅/현재 코스트/강화 단계
@@ -41,3 +41,6 @@ Node22.23.5 LTS의 node:sqlite 사용(런타임 실험 경고 가능). Node24는
 ## 테스트 계획
 Phase 1 실제 임시 SQLite + Fastify inject: 회원가입/중복/잘못된 로그인/세션 만료·폐기, 인증 필수, CSRF, 파티 15초과·중복·빈 파티·미지 영웅·순서 저장, 다른 계정 분리, revision 경합, 동일 action 재생·다른 payload 충돌, 프로세스 재시작 후 복구. Argon2id와 DB 무결성 확인. 추가 HTTP smoke로 정적 앱과 API 접속 확인. npm install/npm test/npm run typecheck/npm run build 결과 기록.
 후속 단계는 제품 명세의 엔진/보상/합성/100층 인수 조건을 추가한다. 브라우저 모바일 실기기, 외부 HTTPS 및 실제 MacBook 실행은 이 클라우드 검증과 구분한다.
+
+## 2026-11-14 사용자 요청 반영
+신규 가입/로그인 식별자를 username으로 변경(영문/숫자/밑줄3~20자). migration002에서 email 열을 rename하여 기존 이메일 계정·세션·진행을 보존하며 기존 이메일은 로그인 식별자로 허용. CSRF Origin 엄격 검증은 유지하고 오류에 허용 주소/복구 명령을 안내. serve:public 실행기로 현재 HTTPS 터널 URL을 PUBLIC_ORIGIN에 명시 적용.

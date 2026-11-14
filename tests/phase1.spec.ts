@@ -10,8 +10,8 @@ test("signup, party validation and ordering, reload recovery, logout and login o
     page.getByRole("heading", { name: "여정을 준비하세요" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "회원가입", exact: true }).click();
-  const email = `browser-${Date.now()}@example.com`;
-  await page.getByLabel("이메일", { exact: true }).fill(email);
+  const username = `p${Date.now()}`;
+  await page.getByLabel("아이디", { exact: true }).fill(username);
   await page.getByLabel("닉네임").fill("브라우저원정대");
   await page.getByLabel("비밀번호").fill("browser-secure-password");
   await page.getByRole("button", { name: "회원가입 →" }).click();
@@ -70,7 +70,7 @@ test("signup, party validation and ordering, reload recovery, logout and login o
   await expect(
     page.getByRole("heading", { name: "여정을 준비하세요" }),
   ).toBeVisible();
-  await page.getByLabel("이메일", { exact: true }).fill(email);
+  await page.getByLabel("아이디", { exact: true }).fill(username);
   await page.getByLabel("비밀번호").fill("browser-secure-password");
   await page.getByRole("button", { name: "로비 입장 →" }).click();
   await expect(

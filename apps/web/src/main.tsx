@@ -61,7 +61,7 @@ function App() {
     const f = new FormData(event.currentTarget);
     void act(async () => {
       const body = {
-        email: f.get("email"),
+        username: f.get("username"),
         password: f.get("password"),
         ...(mode === "register" ? { nickname: f.get("nickname") } : {}),
         actionId: crypto.randomUUID(),
@@ -198,14 +198,24 @@ function App() {
               </div>
               <form onSubmit={authenticate}>
                 <label>
-                  이메일
+                  아이디
                   <input
-                    name="email"
-                    type="email"
+                    name="username"
+                    type="text"
                     autoComplete="username"
                     required
-                    maxLength={254}
-                    placeholder="adventurer@example.com"
+                    maxLength={mode === "register" ? 20 : 254}
+                    placeholder={
+                      mode === "register"
+                        ? "영문·숫자·밑줄 3~20자"
+                        : "아이디 (기존 계정은 이메일)"
+                    }
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    minLength={mode === "register" ? 3 : 1}
+                    pattern={
+                      mode === "register" ? "[a-zA-Z0-9_]{3,20}" : undefined
+                    }
                     disabled={busy}
                   />
                 </label>

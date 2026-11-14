@@ -38,7 +38,7 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 type UserRow = {
   id: string;
-  email: string;
+  username: string;
   nickname: string;
   revision: number;
   password_hash: string;
@@ -80,19 +80,20 @@ export async function createApp(config: Config) {
       ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
       req.headers.origin !== config.origin
     )
-      throw new ApiError(403, "요청 출처를 확인할 수 없습니다.");
+      throw new ApiError(
+        403,
+        `접속 주소와 서버 설정이 다릅니다. 서버 허용 주소: ${config.origin}. 서버를 중지하고 npm run serve:public -- 실제HTTPS주소 로 다시 실행하세요.`,
+      );
   });
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof ZodError)
-      return reply
-        .code(400)
-        .send({
-          error: "입력값을 확인하세요.",
-          fields: error.issues.map((i) => ({
-            path: i.path.join("."),
-            message: i.message,
-          })),
-        });
+      return reply.code(400).send({
+        error: "입력값을 확인하세요.",
+        fields: error.issues.map((i) => ({
+          path: i.path.join("."),
+          message: i.message,
+        })),
+      });
     const status =
       error instanceof ApiError
         ? error.statusCode
@@ -102,20 +103,18 @@ export async function createApp(config: Config) {
           ? error.statusCode
           : 500;
     if (status >= 500) app.log.error({ err: error }, "Request failed");
-    return reply
-      .code(status)
-      .send({
-        error:
-          status >= 500
-            ? "서버 오류가 발생했습니다."
-            : error instanceof Error
-              ? error.message
-              : "요청에 실패했습니다.",
-      });
+    return reply.code(status).send({
+      error:
+        status >= 500
+          ? "서버 오류가 발생했습니다."
+          : error instanceof Error
+            ? error.message
+            : "요청에 실패했습니다.",
+    });
   });
   function account(id: string): Account {
     const u = db
-      .prepare("SELECT id,email,nickname,revision FROM users WHERE id=?")
+      .prepare("SELECT id,username,nickname,revision FROM users WHERE id=?")
       .get(id) as UserRow;
     const currency = db
       .prepare("SELECT ark_crystals FROM user_currencies WHERE user_id=?")
@@ -220,7 +219,7 @@ export async function createApp(config: Config) {
   });
   app.post("/api/auth/register", authLimit, async (req, reply) => {
     const body = registerSchema.parse(req.body);
-    const scope = `auth:${hash(body.email)}`;
+    const scope = `auth:${hash(body.username)}`;
     const passwordHash = await argon2.hash(body.password, {
       type: argon2.argon2id,
       memoryCost: 19456,
@@ -231,12 +230,14 @@ export async function createApp(config: Config) {
     const result = mutation(scope, "register", body, 201, () => {
       if (body.revision !== 0)
         throw new ApiError(409, "회원가입 revision은 0이어야 합니다.");
-      if (db.prepare("SELECT id FROM users WHERE email=?").get(body.email))
-        throw new ApiError(409, "이미 가입된 이메일입니다.");
+      if (
+        db.prepare("SELECT id FROM users WHERE username=?").get(body.username)
+      )
+        throw new ApiError(409, "이미 사용 중인 아이디입니다.");
       const id = randomUUID();
       db.prepare(
-        "INSERT INTO users(id,email,password_hash,nickname,created_at) VALUES (?,?,?,?,?)",
-      ).run(id, body.email, passwordHash, body.nickname, Date.now());
+        "INSERT INTO users(id,username,password_hash,nickname,created_at) VALUES (?,?,?,?,?)",
+      ).run(id, body.username, passwordHash, body.nickname, Date.now());
       db.prepare("INSERT INTO user_currencies(user_id) VALUES (?)").run(id);
       for (const hero of HEROES)
         db.prepare(
@@ -255,15 +256,15 @@ export async function createApp(config: Config) {
   app.post("/api/auth/login", authLimit, async (req, reply) => {
     const body = loginSchema.parse(req.body);
     const u = db
-      .prepare("SELECT * FROM users WHERE email=?")
-      .get(body.email) as UserRow | undefined;
+      .prepare("SELECT * FROM users WHERE username=?")
+      .get(body.username) as UserRow | undefined;
     const valid = await argon2.verify(
       u?.password_hash ?? dummyHash,
       body.password,
     );
     if (!u || !valid)
-      throw new ApiError(401, "이메일 또는 비밀번호가 올바르지 않습니다.");
-    const scope = `auth:${hash(body.email)}`;
+      throw new ApiError(401, "아이디 또는 비밀번호가 올바르지 않습니다.");
+    const scope = `auth:${hash(body.username)}`;
     const raw = token(scope, body.actionId);
     const result = mutation(scope, "login", body, 200, () => {
       if (body.revision !== 0)

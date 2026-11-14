@@ -15,10 +15,10 @@ const base = {
 };
 const action = (revision = 0) => ({ actionId: randomUUID(), revision });
 type App = Awaited<ReturnType<typeof createApp>>;
-async function register(app: App, email = "one@example.com") {
+async function register(app: App, username = "player_one") {
   const payload = {
     ...action(),
-    email,
+    username,
     password: "a-secure-password",
     nickname: "원정대장",
   };
@@ -86,7 +86,7 @@ test("registration atomically creates account, six upgrades, currency and secure
     const me = await app.inject({ url: "/api/auth/me", headers: { cookie } });
     assert.equal(me.json().account.id, account.id);
   }));
-test("register idempotency, conflicting payload and duplicate email", () =>
+test("register idempotency, conflicting payload and duplicate username", () =>
   fixture(async (app) => {
     const { payload, response } = await register(app);
     const replay = await app.inject({
@@ -113,19 +113,19 @@ test("register idempotency, conflicting payload and duplicate email", () =>
     });
     assert.equal(duplicate.statusCode, 409);
   }));
-test("login validation, case normalized email, idempotent login, session logout and replay", () =>
+test("login validation, case normalized username, idempotent login, session logout and replay", () =>
   fixture(async (app) => {
     const { cookie } = await register(app);
     const bad = await app.inject({
       method: "POST",
       url: "/api/auth/login",
       headers: { origin },
-      payload: { ...action(), email: "one@example.com", password: "wrong" },
+      payload: { ...action(), username: "player_one", password: "wrong" },
     });
     assert.equal(bad.statusCode, 401);
     const payload = {
       ...action(),
-      email: "ONE@example.com",
+      username: "PLAYER_ONE",
       password: "a-secure-password",
     };
     const login = await app.inject({
@@ -187,7 +187,7 @@ test("authentication, CSRF, strict schema, body limit and production secure cook
     assert.equal((await app.inject({ url: "/api/heroes" })).statusCode, 401);
     const payload = {
       ...action(),
-      email: "new@example.com",
+      username: "player_new",
       password: "a-secure-password",
       nickname: "대장",
     };
@@ -269,7 +269,7 @@ test("party rejects cost overflow, unknown heroes, duplicates, empty and oversiz
 test("party order, exact retry, conflicting action, stale revision, and account isolation", () =>
   fixture(async (app) => {
     const one = await register(app);
-    const two = await register(app, "two@example.com");
+    const two = await register(app, "player_two");
     const payload = { ...action(), heroIds: ["balthorr", "wei", "nineveh"] };
     const headers = { origin, cookie: one.cookie };
     const r = await app.inject({
@@ -401,7 +401,7 @@ test("saved party and session survive closing and reopening server", async () =>
 });
 test("auth attempts are rate limited", () =>
   fixture(async (app) => {
-    const payload = { email: "unknown@example.com", password: "wrong" };
+    const payload = { username: "player_unknown", password: "wrong" };
     for (let i = 0; i < 10; i++)
       assert.equal(
         (
@@ -426,3 +426,110 @@ test("auth attempts are rate limited", () =>
       429,
     );
   }));
+
+test("username signup validates format and normalizes case without accepting email signup", () =>
+  fixture(async (app) => {
+    const created = await register(app, " New_Player ");
+    assert.equal(created.account.username, "new_player");
+    assert.equal(created.account.email, undefined);
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      headers: { origin },
+      payload: { ...created.payload, ...action(), username: "NEW_PLAYER" },
+    });
+    assert.equal(duplicate.statusCode, 409);
+    for (const username of [
+      "ab",
+      "x".repeat(21),
+      "has space",
+      "한글아이디",
+      "test@example.com",
+      "<script>",
+    ]) {
+      const result = await app.inject({
+        method: "POST",
+        url: "/api/auth/register",
+        headers: { origin },
+        payload: { ...created.payload, ...action(), username },
+      });
+      assert.equal(result.statusCode, 400, username);
+    }
+  }));
+
+test("origin mismatch explains configured address while untrusted forwarded headers cannot bypass CSRF", () =>
+  fixture(async (app) => {
+    const result = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      headers: {
+        origin: "https://current-tunnel.trycloudflare.com",
+        "x-forwarded-host": "current-tunnel.trycloudflare.com",
+        "x-forwarded-proto": "https",
+      },
+      payload: {
+        ...action(),
+        username: "valid_player",
+        password: "valid-password",
+        nickname: "원정대",
+      },
+    });
+    assert.equal(result.statusCode, 403);
+    assert.match(result.json().error, /serve:public/);
+    assert.ok(result.json().error.includes(origin));
+  }));
+
+test("existing email accounts, sessions and saved party survive username migration", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "loa-legacy-"));
+  const path = join(dir, "game.sqlite");
+  let app = await createApp({ ...base, databasePath: path });
+  try {
+    const old = await register(app);
+    await app.inject({
+      method: "PUT",
+      url: "/api/party",
+      headers: { origin, cookie: old.cookie },
+      payload: { ...action(), heroIds: ["shandi", "wei"] },
+    });
+    await app.close();
+    // Reconstruct the previous email-column schema, retaining real hashed credentials and data.
+    const db = new DatabaseSync(path);
+    try {
+      db.exec("ALTER TABLE users RENAME COLUMN username TO email");
+      db.prepare("UPDATE users SET email=? WHERE id=?").run(
+        "legacy@example.com",
+        old.account.id,
+      );
+      db.prepare("DELETE FROM schema_migrations WHERE name=?").run(
+        "002_username.sql",
+      );
+    } finally {
+      db.close();
+    }
+    app = await createApp({ ...base, databasePath: path });
+    const me = await app.inject({
+      url: "/api/auth/me",
+      headers: { cookie: old.cookie },
+    });
+    assert.equal(me.statusCode, 200);
+    assert.equal(me.json().account.username, "legacy@example.com");
+    assert.equal(me.json().account.id, old.account.id);
+    assert.equal(me.json().account.revision, 1);
+    assert.deepEqual(me.json().account.party, ["shandi", "wei"]);
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { origin },
+      payload: {
+        ...action(),
+        username: "LEGACY@example.com",
+        password: "a-secure-password",
+      },
+    });
+    assert.equal(login.statusCode, 200);
+    assert.equal(login.json().account.id, old.account.id);
+  } finally {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

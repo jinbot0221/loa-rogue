@@ -2,6 +2,21 @@
 
 GitHub는 소스 보관소입니다. 사람들이 접속할 웹 주소는 Mac에서 실행하는 서버에 HTTPS 터널을 연결해서 만듭니다. 현재 공유할 수 있는 기능은 Phase 1(회원가입, 로그인, 영웅 도감, 파티 편성)입니다.
 
+## 업데이트: 아이디 가입 및 출처 오류 해결
+
+신규 가입은 이메일 대신 영문/숫자/밑줄 3~20자 아이디를 사용합니다. 대소문자는 구분하지 않습니다. 기존 이메일 계정은 로그인 입력칸에 예전 이메일과 비밀번호를 그대로 입력하세요. DB를 삭제할 필요가 없습니다. `002_username.sql` migration이 계정/세션/편성/재화를 유지합니다.
+
+`요청 출처` 오류는 실제 브라우저 접속 주소가 서버의 `PUBLIC_ORIGIN`과 다를 때 발생합니다. 터널 주소가 바뀌었거나 다른 서버 프로세스가 이전 설정으로 실행 중인지 확인하세요. **터널은 유지하고 서버만 Ctrl+C로 종료한 뒤**, 코드를 업데이트하고 실제 터널 주소를 넣어 시작합니다.
+
+```bash
+git pull --ff-only
+npm ci
+npm run build
+caffeinate -is npm run serve:public -- https://실제주소.trycloudflare.com
+```
+
+`serve:public`은 전달한 주소를 PUBLIC_ORIGIN으로 설정하고 production 모드로 시작하므로 `.env`에 예전 주소가 있어도 이번 실행에는 새 주소를 사용합니다. 마지막 `/`는 정리합니다. 콘솔의 `허용 접속 주소`와 브라우저 주소를 맞추세요. 서버 시작 시 migration을 자동 적용합니다. 포트 사용 중 오류가 나면 이전 서버가 종료되지 않은 것입니다. 출처 검증을 끄거나 모든 도메인을 허용할 필요가 없습니다.
+
 ## 1. Mac에 준비하기
 
 Node.js **22.23.5 LTS**와 `cloudflared`가 필요합니다. Mac에서 다음으로 버전을 확인하세요.
@@ -44,7 +59,7 @@ cloudflared tunnel --url http://127.0.0.1:3001
 첫 번째 서버 터미널에서 Ctrl+C로 서버를 중지한 후, **실제 출력 주소로 바꾸어** 다시 실행합니다.
 
 ```bash
-NODE_ENV=production PUBLIC_ORIGIN=https://실제주소.trycloudflare.com caffeinate -is npm start
+caffeinate -is npm run serve:public -- https://실제주소.trycloudflare.com
 ```
 
 두 번째 터미널의 cloudflared는 계속 켜둡니다. 이제 HTTPS 주소를 휴대전화의 모바일 데이터로 열어 가입·로그인·저장을 확인하고 사람들에게 전달하면 됩니다. `PUBLIC_ORIGIN`에는 끝 슬래시(`/`)를 붙이지 마세요. 주소가 맞지 않으면 보안 검증 때문에 가입·로그인이403으로 거절됩니다.
@@ -68,7 +83,7 @@ cloudflared tunnel route dns loa-rogue game.내도메인.com
 
 ```bash
 # 터미널 1: 프로젝트 루트
-NODE_ENV=production PUBLIC_ORIGIN=https://game.내도메인.com caffeinate -is npm start
+caffeinate -is npm run serve:public -- https://game.내도메인.com
 # 터미널 2
 cloudflared tunnel run loa-rogue
 ```
@@ -89,7 +104,7 @@ npm ci
 npm run db:init
 npm run build
 # 기존 실제 HTTPS 주소로 서버 재시작
-NODE_ENV=production PUBLIC_ORIGIN=https://실제주소 caffeinate -is npm start
+caffeinate -is npm run serve:public -- https://실제주소
 ```
 
 백업 파일은 매번 다른 이름을 사용해 이전 백업을 보존하세요. `.env`/DB/터널 인증 파일을 공유하거나 커밋하지 마세요. 장기 운영 전에는 자동 재시작, 로그 보관/로테이션, 정기 백업과 복구 검증을 설정하세요.
