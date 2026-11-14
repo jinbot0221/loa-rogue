@@ -2,6 +2,7 @@ import {
   HEROES,
   HERO_SKILLS,
   BASIC,
+  MONSTERS,
   type BattleState,
   type Fighter,
   type Skill,
@@ -69,45 +70,55 @@ function log(
   });
   b.logs = b.logs.slice(-100);
 }
-const ENEMY_NAMES = [
-  "균열 늑대",
-  "산적 정찰병",
-  "가시 정령",
-  "잿빛 망령",
-  "혼돈 수호자",
-];
 export function encounter(
   party: Fighter[],
   floor: number,
   rng: number,
   potions = 3,
+  rank: "normal" | "elite" = "normal",
 ): BattleState {
   if (floor < 1 || floor > 100 || !Number.isInteger(floor))
     throw new BattleRuleError("층 범위 오류");
   const boss = floor % 10 === 0;
   const band = Math.min(4, Math.floor((floor - 1) / 20));
   const scale = 1 + (floor - 1) * 0.045;
-  const enemy = (i: number): Fighter => ({
-    id: `enemy_${floor}_${i}`,
-    name: boss ? `${floor}층 균열 파수꾼` : ENEMY_NAMES[band],
-    hp: Math.floor((boss ? 150 : 60) * scale),
-    maxHp: Math.floor((boss ? 150 : 60) * scale),
-    attack: Math.floor((boss ? 22 : 14) * scale),
-    defense: Math.floor((boss ? 20 : 9) * scale),
-    speed: (boss ? 17 : 12) + band,
-    crit: 0.05,
-    stagger: boss ? 140 : 65,
-    maxStagger: boss ? 140 : 65,
-    staggered: false,
-    immunity: 0,
-    shield: 0,
-    shieldTurns: 0,
-    statuses: [],
-    cooldowns: {},
-    gauge: 0,
-    boss,
-    ai: (["attack", "stagger", "status", "heal", "guard"] as const)[band],
-  });
+  const picker = { rng: rng >>> 0 || 1 } as BattleState;
+  const pool = MONSTERS.filter((m) =>
+    boss ? m.floor === floor : m.region === band && m.rank === rank,
+  );
+  const enemy = (i: number): Fighter => {
+    const m = pool[Math.floor(random(picker) * pool.length)];
+    const hp = Math.floor(m.hp * scale),
+      stagger = m.rank === "boss" ? 140 : m.rank === "elite" ? 100 : 65;
+    return {
+      id: `enemy_${floor}_${i}`,
+      templateId: m.id,
+      name: m.name,
+      hp,
+      maxHp: hp,
+      attack: Math.floor(m.attack * scale),
+      defense: Math.floor(m.defense * scale),
+      speed: m.speed,
+      crit: 0.05,
+      stagger,
+      maxStagger: stagger,
+      staggered: false,
+      immunity: 0,
+      shield: 0,
+      shieldTurns: 0,
+      statuses: [],
+      cooldowns: {},
+      gauge: 0,
+      boss,
+      ai: m.ai,
+      element: m.element,
+      model: m.model,
+      color: m.color,
+      primarySkill: structuredClone(m.skill),
+      pattern: m.pattern ? structuredClone(m.pattern) : undefined,
+      phase: 1,
+    };
+  };
   const b: BattleState = {
     party: structuredClone(party),
     enemies: Array.from(
@@ -126,10 +137,11 @@ export function encounter(
     needsSwitch: false,
     outcome: "ongoing",
     potions,
-    rng: rng >>> 0 || 1,
+    rng: picker.rng,
     logs: [],
     logSequence: 0,
   };
+  b.rng = picker.rng;
   for (const h of b.party) {
     h.statuses = [];
     h.shield = 0;
@@ -255,6 +267,56 @@ function applySkill(
   actor.gauge = skill.ultimate ? 0 : Math.min(100, actor.gauge + 25);
 }
 function aiSkill(b: BattleState, e: Fighter): Skill {
+  if (e.primarySkill) {
+    const phase =
+      (e.phase ?? 1) > 1 ||
+      !!(e.pattern && e.hp <= e.maxHp * e.pattern.threshold);
+    const multiplier = phase ? (e.pattern?.multiplier ?? 1) : 1;
+    if (e.pattern && (b.turn + 1) % e.pattern.interval === 0)
+      return {
+        ...e.pattern.skill,
+        power: Math.floor(e.pattern.skill.power * multiplier),
+      };
+    if (e.ai === "heal" && e.hp < e.maxHp / 2 && (b.turn + 1) % 3 === 0)
+      return {
+        id: "heal",
+        name: "생명 흡수",
+        power: 0,
+        stagger: 0,
+        heal: Math.ceil(e.maxHp * 0.12),
+        cooldown: 0,
+      };
+    if (e.ai === "guard" && (b.turn + 1) % 3 === 0)
+      return {
+        ...e.primarySkill,
+        name: "수호 장벽",
+        shield: Math.ceil(e.maxHp * 0.15),
+        power: 12,
+      };
+    if (e.ai === "pattern" && !e.pattern && (b.turn + 1) % 3 === 0)
+      return {
+        ...e.primarySkill,
+        name: "마력 폭주",
+        power: 35,
+        effect: "slow",
+        duration: 2,
+        effectPower: 25,
+      };
+    if (e.ai === "status" && (b.turn + 1) % 2 !== 0)
+      return {
+        ...e.primarySkill,
+        effect: undefined,
+        power: Math.floor(e.primarySkill.power * multiplier),
+      };
+    return {
+      ...e.primarySkill,
+      power: Math.floor(
+        e.primarySkill.power *
+          multiplier *
+          (e.ai === "rage" && e.hp < e.maxHp / 2 ? 1.35 : 1),
+      ),
+    };
+  }
   if (e.boss && (b.turn + 1) % 3 === 0)
     return {
       id: "boss_charge",
@@ -343,6 +405,33 @@ export function step(input: BattleState, action: BattleAction): BattleState {
   )
     throw new BattleRuleError("회복약이 없거나 HP가 가득 찼습니다.");
   const enemy = b.enemies[b.activeEnemy];
+  if (
+    enemy.pattern &&
+    (enemy.phase ?? 1) === 1 &&
+    enemy.hp <= enemy.maxHp * enemy.pattern.threshold
+  ) {
+    enemy.phase = 2;
+    const mechanic = enemy.pattern.mechanic;
+    if (mechanic === "shield") {
+      enemy.shield = Math.max(enemy.shield, Math.ceil(enemy.maxHp * 0.2));
+      enemy.shieldTurns = 4;
+    }
+    if (mechanic === "heal")
+      enemy.hp = Math.min(
+        enemy.maxHp,
+        enemy.hp + Math.ceil(enemy.maxHp * 0.15),
+      );
+    if (mechanic === "stagger") {
+      current.stagger = Math.max(0, current.stagger - 35);
+      if (current.stagger === 0) current.staggered = true;
+    }
+    log(
+      b,
+      "system",
+      enemy.id,
+      `${enemy.name} 2페이즈: ${{ shield: "보호막 생성", heal: "생명 회복", stagger: "충격파", enrage: "광폭화" }[mechanic]}`,
+    );
+  }
   const enemySkill = aiSkill(b, enemy);
   b.turn++;
   const heroMove = () => {

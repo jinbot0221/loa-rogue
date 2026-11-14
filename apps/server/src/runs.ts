@@ -1,3 +1,4 @@
+import { DungeonService, registerDungeonRoutes } from "./dungeon.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { DatabaseSync } from "node:sqlite";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -18,7 +19,7 @@ import {
   BattleRuleError,
   type Upgrade,
 } from "@loa/game-engine";
-class RunError extends Error {
+export class RunError extends Error {
   constructor(
     public statusCode: number,
     message: string,
@@ -26,14 +27,14 @@ class RunError extends Error {
     super(message);
   }
 }
-interface RunRow {
+export interface RunRow {
   id: string;
   user_id: string;
   status: RunView["status"];
   floor: number;
   completed_floor: number;
   revision: number;
-  stage: RunView["stage"];
+  stage: "battle" | "reward" | "finished";
   seed: number;
   battle_json: string;
   party_cost: number;
@@ -41,8 +42,9 @@ interface RunRow {
   crystals_awarded: number;
   created_at: number;
   updated_at: number;
+  dungeon_json: string | null;
 }
-interface Context {
+export interface Context {
   userId: (req: FastifyRequest) => string;
   account: (id: string) => Account;
   mutation: (
@@ -53,7 +55,7 @@ interface Context {
     fn: () => unknown,
   ) => { code: number; body: unknown };
 }
-export function runView(row: RunRow): RunView {
+export function runView(row: RunRow, service?: DungeonService): RunView {
   const { rng: _, ...battle } = JSON.parse(row.battle_json) as BattleState;
   return {
     id: row.id,
@@ -61,12 +63,18 @@ export function runView(row: RunRow): RunView {
     floor: row.floor,
     completedFloor: row.completed_floor,
     revision: row.revision,
-    stage: row.stage,
+    stage:
+      row.stage === "battle" &&
+      service?.state(row) &&
+      service.state(row)!.phase !== "battle"
+        ? "event"
+        : row.stage,
     battle,
     gold: row.gold,
     crystalsAwarded: row.crystals_awarded,
     partyCost: row.party_cost,
     createdAt: row.created_at,
+    ...(service?.public(row) ?? {}),
   };
 }
 export function registerRunRoutes(
@@ -74,6 +82,7 @@ export function registerRunRoutes(
   db: DatabaseSync,
   ctx: Context,
 ) {
+  const service = new DungeonService(db);
   const get = (userId: string, id: string): RunRow => {
     const row = db
       .prepare("SELECT * FROM runs WHERE id=? AND user_id=?")
@@ -128,7 +137,7 @@ export function registerRunRoutes(
   }
   function save(row: RunRow) {
     db.prepare(
-      "UPDATE runs SET status=?,floor=?,completed_floor=?,revision=?,stage=?,battle_json=?,gold=?,crystals_awarded=?,updated_at=?,finished_at=? WHERE id=?",
+      "UPDATE runs SET status=?,floor=?,completed_floor=?,revision=?,stage=?,battle_json=?,gold=?,crystals_awarded=?,updated_at=?,finished_at=?,dungeon_json=? WHERE id=?",
     ).run(
       row.status,
       row.floor,
@@ -140,11 +149,12 @@ export function registerRunRoutes(
       row.crystals_awarded,
       Date.now(),
       row.status === "active" ? null : Date.now(),
+      row.dungeon_json,
       row.id,
     );
   }
   const response = (row: RunRow) => ({
-    run: runView(row),
+    run: runView(row, service),
     account: ctx.account(row.user_id),
   });
   app.get("/api/runs/active", async (req) => {
@@ -152,10 +162,10 @@ export function registerRunRoutes(
     const row = db
       .prepare("SELECT * FROM runs WHERE user_id=? AND status='active'")
       .get(id) as unknown as RunRow | undefined;
-    return { run: row ? runView(row) : null };
+    return { run: row ? runView(row, service) : null };
   });
   app.get<{ Params: { id: string } }>("/api/runs/:id", async (req) => ({
-    run: runView(get(ctx.userId(req), req.params.id)),
+    run: runView(get(ctx.userId(req), req.params.id), service),
   }));
   app.get("/api/records", async (req) => ({
     records: db
@@ -206,7 +216,11 @@ export function registerRunRoutes(
         now,
       );
       db.prepare("UPDATE users SET revision=revision+1 WHERE id=?").run(id);
-      return response(get(id, runId));
+      const row = get(id, runId);
+      row.gold = 75;
+      service.begin(row);
+      save(row);
+      return response(row);
     });
     return reply.code(result.code).send(result.body);
   });
@@ -224,6 +238,12 @@ export function registerRunRoutes(
           const row = checked(id, req.params.id, body.revision);
           if (row.stage !== "battle")
             throw new RunError(409, "전투 보상을 먼저 선택하세요.");
+          const world = service.state(row);
+          if (world && world.phase !== "battle")
+            throw new RunError(
+              409,
+              "먼저 이 층의 이벤트를 선택하고 완료하세요.",
+            );
           let battle: BattleState;
           try {
             battle = step(JSON.parse(row.battle_json), body.action);
@@ -239,6 +259,11 @@ export function registerRunRoutes(
             row.completed_floor = row.floor;
             if (row.floor === 100) finish(row, "cleared");
             else row.stage = "reward";
+            if (world) {
+              row.gold += world.battleBonusGold;
+              world.battleBonusGold = 0;
+              service.reward(row, world);
+            }
           }
           save(row);
           return response(row);
@@ -261,6 +286,29 @@ export function registerRunRoutes(
           const row = checked(id, req.params.id, body.revision);
           if (row.stage !== "reward" || row.floor >= 100)
             throw new RunError(409, "선택할 전투 보상이 없습니다.");
+          const world = service.state(row);
+          if (world && !world.rewardChoices.includes(body.choice))
+            throw new RunError(400, "제시된 보상 중 하나를 선택하세요.");
+          if (body.choice === "equipment") {
+            if (!world)
+              throw new RunError(400, "이전 전투에서는 장비 보상이 없습니다.");
+            const rarity =
+              row.floor % 10 === 0
+                ? Math.min(4, 2 + Math.floor(service.roll(row) * 3))
+                : service
+                      .battle(row)
+                      .enemies.some((e) => e.templateId?.startsWith("elite_"))
+                  ? 1 + Math.floor(service.roll(row) * 2)
+                  : undefined;
+            service.add(
+              row,
+              service.rollGear(
+                row,
+                undefined,
+                rarity as import("@loa/shared").Rarity | undefined,
+              ),
+            );
+          }
           const battle = JSON.parse(row.battle_json) as BattleState;
           for (const hero of battle.party)
             if (hero.hp > 0) {
@@ -276,9 +324,8 @@ export function registerRunRoutes(
           row.floor++;
           row.stage = "battle";
           row.revision++;
-          row.battle_json = JSON.stringify(
-            encounter(battle.party, row.floor, battle.rng, battle.potions),
-          );
+          row.battle_json = JSON.stringify(battle);
+          service.begin(row);
           save(row);
           return response(row);
         },
@@ -307,4 +354,11 @@ export function registerRunRoutes(
       return reply.code(result.code).send(result.body);
     },
   );
+  registerDungeonRoutes(app, db, ctx, service, {
+    get,
+    checked,
+    save,
+    response,
+    finish,
+  });
 }

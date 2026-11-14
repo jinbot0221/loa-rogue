@@ -1220,3 +1220,268 @@ footer {
     max-height: 400px;
   }
 }
+
+.event-message {
+  border: 1px solid #6a5839;
+  background: #d9ad620a;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 18px 0;
+  color: #dec294;
+  font-size: 14px;
+}
+.event-candidates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.event-candidates > button {
+  text-align: left;
+  padding: 25px;
+  background: linear-gradient(145deg, #243347, #131e2d);
+  min-height: 235px;
+}
+.event-icon {
+  font-size: 38px;
+  color: #d9ad62;
+}
+.event-candidates h2 {
+  margin: 10px 0;
+}
+.event-candidates p {
+  font-size: 13px;
+  color: #adb9ca;
+  margin: 10px 0;
+}
+.event-candidates small {
+  font-size: 10px;
+  color: #7e8da4;
+}
+.event-panel {
+  padding: 22px;
+  border: 1px solid #35475d;
+  border-radius: 8px;
+  background: #172334;
+}
+.event-panel h2 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+.event-panel p {
+  font-size: 12px;
+  color: #aab7ca;
+  line-height: 1.9;
+  margin: 12px 0;
+}
+.event-panel button {
+  margin: 8px 0;
+}
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.rift-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.next-floor {
+  margin: 20px 0;
+}
+.event-party {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+.event-party > div {
+  display: grid;
+  gap: 4px;
+  background: #151f2e;
+  border: 1px solid #354052;
+  padding: 12px;
+  min-width: 130px;
+  flex: 1;
+  font-size: 12px;
+}
+.event-party span {
+  color: #8dccaa;
+}
+.event-party small {
+  font-size: 10px;
+  color: #8fa0b7;
+}
+.event-abandon {
+  margin-top: 20px;
+  font-size: 12px;
+}
+.event-abandon button {
+  margin: 5px;
+}
+.inventory-panel {
+  border: 1px solid #3c4a5e;
+  background: #101b29;
+  padding: 18px;
+  border-radius: 8px;
+  margin: 25px 0;
+}
+.inventory-panel > summary {
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 44px;
+  color: #d9ad62;
+}
+.inventory-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin: 12px 0 18px;
+}
+.inventory-filters label {
+  min-width: 140px;
+}
+select {
+  font: inherit;
+  min-height: 44px;
+  border-radius: 5px;
+  border: 1px solid #3d5069;
+  background: #182538;
+  color: #dbe2ed;
+  padding: 8px;
+  width: 100%;
+}
+.gear-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.gear-card {
+  border: 1px solid #586174;
+  padding: 16px;
+  border-radius: 6px;
+  background: #182435;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gear-card.grade-1 {
+  border-color: #6ea58b;
+}
+.gear-card.grade-2 {
+  border-color: #729bd1;
+}
+.gear-card.grade-3 {
+  border-color: #ab7ecd;
+}
+.gear-card.grade-4 {
+  border-color: #d9ad62;
+}
+.gear-card h3 {
+  font-size: 16px;
+}
+.gear-card p,
+.gear-card > small {
+  font-size: 10px;
+  color: #a5b5cc;
+}
+.gear-stats {
+  display: block;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #c8d4e5;
+}
+.gear-actions {
+  display: flex;
+  gap: 8px;
+}
+.gear-actions button {
+  font-size: 10px;
+  flex: 1;
+  padding: 8px;
+}
+.material-check {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+}
+.material-check input {
+  min-height: 44px;
+  width: 25px;
+}
+.forge-controls {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #ad8953;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+}
+.forge-controls p {
+  font-size: 12px;
+  color: #b1bdd0;
+}
+.forge-controls h2 {
+  font-size: 18px;
+}
+.monster-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.monster-entry {
+  border: 1px solid #33455d;
+  padding: 12px;
+  background: #131f30;
+  margin: 12px 0;
+  border-radius: 5px;
+}
+.monster-entry summary {
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.monster-entry p {
+  font-size: 11px;
+  color: #a1b3ce;
+  line-height: 1.8;
+}
+.bestiary > summary {
+  color: #d9ad62;
+}
+@media (max-width: 1000px) {
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .event-candidates {
+    gap: 10px;
+  }
+  .event-candidates > button {
+    padding: 18px;
+  }
+  .gear-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .event-candidates {
+    grid-template-columns: 1fr;
+  }
+  .event-candidates > button {
+    min-height: 150px;
+  }
+  .shop-grid,
+  .gear-grid,
+  .monster-grid {
+    grid-template-columns: 1fr;
+  }
+  .event-panel {
+    padding: 16px;
+  }
+  .inventory-panel {
+    padding: 12px;
+  }
+  .gear-actions button {
+    font-size: 12px;
+  }
+}

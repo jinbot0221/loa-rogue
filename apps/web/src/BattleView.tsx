@@ -6,6 +6,7 @@ import {
   type Fighter,
   type RunView,
   type BattleAction,
+  type RewardKind,
 } from "@loa/shared";
 import { enemyIntent } from "@loa/game-engine";
 const BattleScene = lazy(() => import("./BattleScene"));
@@ -60,7 +61,7 @@ export function BattleView({
   run: RunView;
   busy: boolean;
   onAction: (action: BattleAction) => void;
-  onReward: (choice: "heal" | "gauge" | "gold") => void;
+  onReward: (choice: RewardKind) => void;
   onAbandon: () => void;
   onHome: () => void;
 }) {
@@ -74,7 +75,10 @@ export function BattleView({
     <section className="battle-screen">
       <div className="battle-heading">
         <div>
-          <p className="eyebrow">RIFT EXPEDITION · 전투 경로 프리뷰</p>
+          <p className="eyebrow">
+            RIFT EXPEDITION ·{" "}
+            {run.dungeon?.selected === "elite" ? "정예전" : "던전 전투"}
+          </p>
           <h1>
             {run.floor}층 {enemy.boss ? "보스전" : "전투"}
           </h1>
@@ -108,6 +112,22 @@ export function BattleView({
                 : "도전 종료"}{" "}
             · 적 {battle.activeEnemy + 1}/{battle.enemies.length}
           </p>
+          <details className="monster-entry">
+            <summary>적 정보 · {enemy.name}</summary>
+            <p>
+              {enemy.element ?? "물리"} · AI {enemy.ai} · 페이즈{" "}
+              {enemy.phase ?? 1}
+            </p>
+            <p>
+              공격 {enemy.attack} · 방어 {enemy.defense} · 속도 {enemy.speed}
+            </p>
+            <p>
+              {enemy.primarySkill?.name ?? "일반 공격"}
+              {enemy.pattern
+                ? ` · ${enemy.pattern.interval}턴마다 ${enemy.pattern.skill.name} / HP ${enemy.pattern.threshold * 100}% 페이즈 전환`
+                : ""}
+            </p>
+          </details>
           {fighting && (
             <div className="battle-controls">
               <p className="passive">
@@ -176,16 +196,42 @@ export function BattleView({
                 않습니다.
               </p>
               <div className="action-grid">
-                <button disabled={busy} onClick={() => onReward("heal")}>
-                  휴식의 기운<small>생존 파티 HP 25% 회복</small>
-                </button>
-                <button disabled={busy} onClick={() => onReward("gauge")}>
-                  전투의 고양<small>생존 파티 궁극기 +35</small>
-                </button>
-                <button disabled={busy} onClick={() => onReward("gold")}>
-                  금빛 주머니
-                  <small>골드 +{25 + run.floor * 5} · 상점은 후속 단계</small>
-                </button>
+                {(
+                  run.dungeon?.rewardChoices ??
+                  (["heal", "gauge", "gold"] as RewardKind[])
+                ).map((choice) => (
+                  <button
+                    key={choice}
+                    disabled={
+                      busy ||
+                      (choice === "equipment" &&
+                        (run.equipment?.length ?? 0) >= 60)
+                    }
+                    onClick={() => onReward(choice)}
+                  >
+                    {
+                      {
+                        heal: "휴식의 기운",
+                        gauge: "전투의 고양",
+                        gold: "금빛 주머니",
+                        equipment: "장비 획득",
+                      }[choice]
+                    }
+                    <small>
+                      {
+                        {
+                          heal: "생존 파티 HP25% 회복",
+                          gauge: "생존 파티 궁극기+35",
+                          gold: `골드 +${25 + run.floor * 5}`,
+                          equipment:
+                            (run.equipment?.length ?? 0) >= 60
+                              ? "인벤토리를 정리하세요."
+                              : "시드 기반 장비1개",
+                        }[choice]
+                      }
+                    </small>
+                  </button>
+                ))}
               </div>
             </section>
           )}
@@ -233,8 +279,8 @@ export function BattleView({
             ))}
           </div>
           <p className="muted">
-            임시 전투 경로: 1~100층 순차 전투 · 10층마다 보스. 일반층
-            이벤트/장비/상점은 아직 연결되지 않았습니다.
+            1~100층 · 10층마다 보스 · 장비 관리는 전투 보상/층 이벤트에서
+            가능합니다.
           </p>
         </div>
         <aside className="battle-log">

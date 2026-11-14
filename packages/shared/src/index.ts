@@ -164,5 +164,29 @@ export const battleActionSchema = mutationSchema
   })
   .strict();
 export const rewardSchema = mutationSchema
-  .extend({ choice: z.enum(["heal", "gauge", "gold"]) })
+  .extend({ choice: z.enum(["heal", "gauge", "gold", "equipment"]) })
+  .strict();
+
+export * from "./dungeon.js";
+export * from "./monsters.js";
+export const eventSelectSchema = mutationSchema
+  .extend({ candidateId: z.string().min(1).max(100) })
+  .strict();
+export const riftChoiceSchema = mutationSchema
+  .extend({ choiceId: z.string().min(1).max(60) })
+  .strict();
+export const shopBuySchema = mutationSchema
+  .extend({ offerId: z.string().min(1).max(100) })
+  .strict();
+export const equipmentItemSchema = mutationSchema
+  .extend({ itemId: z.uuid() })
+  .strict();
+export const equipmentEquipSchema = equipmentItemSchema
+  .extend({ target: z.union([heroIdSchema, z.enum(["party:0", "party:1"])]) })
+  .strict();
+export const equipmentFuseSchema = mutationSchema
+  .extend({ itemIds: z.array(z.uuid()).length(3) })
+  .strict();
+export const equipmentCraftSchema = equipmentFuseSchema
+  .extend({ recipeId: z.string().max(60) })
   .strict();

@@ -2,7 +2,10 @@ import { defineConfig } from "@playwright/test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-const dir = mkdtempSync(join(tmpdir(), "loa-browser-"));
+const dbPath =
+  process.env.LOA_E2E_DATABASE ??
+  join(mkdtempSync(join(tmpdir(), "loa-browser-")), "e2e.sqlite");
+process.env.LOA_E2E_DATABASE = dbPath;
 export default defineConfig({
   testDir: "./tests",
   workers: 1,
@@ -26,7 +29,7 @@ export default defineConfig({
       PUBLIC_ORIGIN: "http://127.0.0.1:3002",
       NODE_ENV: "test",
       SESSION_SECRET: "browser-test-only-secret-at-least-32-characters",
-      DATABASE_PATH: join(dir, "e2e.sqlite"),
+      DATABASE_PATH: dbPath,
     },
   },
 });

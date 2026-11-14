@@ -211,7 +211,14 @@ export interface Fighter {
   cooldowns: Record<string, number>;
   gauge: number;
   boss: boolean;
-  ai?: "attack" | "guard" | "status" | "heal" | "stagger";
+  ai?: import("./monsters.js").MonsterAI;
+  templateId?: string;
+  element?: string;
+  model?: import("./monsters.js").MonsterModel;
+  color?: string;
+  primarySkill?: Skill;
+  pattern?: import("./monsters.js").MonsterTemplate["pattern"];
+  phase?: number;
 }
 export interface BattleLog {
   id: number;
@@ -247,12 +254,14 @@ export interface RunView {
   floor: number;
   completedFloor: number;
   revision: number;
-  stage: "battle" | "reward" | "finished";
+  stage: "battle" | "reward" | "finished" | "event";
   battle: PublicBattle;
   gold: number;
   crystalsAwarded: number;
   partyCost: number;
   createdAt: number;
+  dungeon?: import("./dungeon.js").PublicDungeon;
+  equipment?: import("./dungeon.js").Equipment[];
 }
 export interface RunRecord {
   run_id: string;

@@ -17,7 +17,7 @@ function Model({
   const phase = useRef(0);
   const previous = useRef(tick);
   const color = enemy
-    ? "#9b5968"
+    ? (fighter.color ?? "#9b5968")
     : (HEROES.find((h) => h.id === fighter.heroId)?.color ?? "#d9ad62");
   useFrame((state, dt) => {
     if (previous.current !== tick) {
@@ -40,39 +40,143 @@ function Model({
       ref={ref}
       position={[x, 0, 0]}
       rotation={[0, enemy ? -0.35 : 0.35, 0]}
+      scale={enemy && fighter.boss ? 1.15 : 1}
     >
-      <mesh position={[0, 2.05, 0]}>
-        <sphereGeometry args={[0.45, 10, 8]} />
-        <meshToonMaterial color={enemy ? "#6b4355" : "#eed4b3"} />
-      </mesh>
-      <mesh position={[0, 2.31, -0.04]}>
-        <sphereGeometry args={[0.46, 10, 6, 0, Math.PI * 2, 0, 1.6]} />
-        <meshToonMaterial color={color} />
-      </mesh>
-      <mesh position={[0, 1.25, 0]}>
-        <boxGeometry args={[0.75, 0.85, 0.48]} />
-        <meshToonMaterial color={color} />
-      </mesh>
-      {[-1, 1].map((side) => (
-        <group key={side}>
-          <mesh position={[side * 0.23, 0.42, 0]}>
-            <boxGeometry args={[0.28, 0.8, 0.34]} />
-            <meshToonMaterial color="#303d57" />
-          </mesh>
-          <mesh position={[side * 0.5, 1.25, 0]} rotation={[0, 0, side * 0.15]}>
-            <boxGeometry args={[0.24, 0.75, 0.28]} />
+      <group
+        visible={
+          !(enemy && ["beast", "plant", "spirit"].includes(fighter.model ?? ""))
+        }
+      >
+        <mesh position={[0, 2.05, 0]}>
+          <sphereGeometry args={[0.45, 10, 8]} />
+          <meshToonMaterial color={enemy ? "#6b4355" : "#eed4b3"} />
+        </mesh>
+        <mesh position={[0, 2.31, -0.04]}>
+          <sphereGeometry args={[0.46, 10, 6, 0, Math.PI * 2, 0, 1.6]} />
+          <meshToonMaterial color={color} />
+        </mesh>
+        <mesh position={[0, 1.25, 0]}>
+          <boxGeometry args={[0.75, 0.85, 0.48]} />
+          <meshToonMaterial color={color} />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <group key={side}>
+            <mesh position={[side * 0.23, 0.42, 0]}>
+              <boxGeometry args={[0.28, 0.8, 0.34]} />
+              <meshToonMaterial color="#303d57" />
+            </mesh>
+            <mesh
+              position={[side * 0.5, 1.25, 0]}
+              rotation={[0, 0, side * 0.15]}
+            >
+              <boxGeometry args={[0.24, 0.75, 0.28]} />
+              <meshToonMaterial color={color} />
+            </mesh>
+            <mesh position={[side * 0.15, 2.08, 0.41]}>
+              <sphereGeometry args={[0.055, 6, 6]} />
+              <meshBasicMaterial color={enemy ? "#ffbd69" : "#252c3d"} />
+            </mesh>
+          </group>
+        ))}
+        <mesh position={[0.68, 1.3, 0.12]} rotation={[0, 0, -0.25]}>
+          <boxGeometry args={[0.12, 1.2, 0.1]} />
+          <meshToonMaterial color="#ccd5df" />
+        </mesh>
+      </group>
+      {enemy && fighter.model === "beast" && (
+        <group>
+          <mesh position={[0, 1, 0]}>
+            <boxGeometry args={[1.05, 0.65, 0.85]} />
             <meshToonMaterial color={color} />
           </mesh>
-          <mesh position={[side * 0.15, 2.08, 0.41]}>
-            <sphereGeometry args={[0.055, 6, 6]} />
-            <meshBasicMaterial color={enemy ? "#ffbd69" : "#252c3d"} />
+          <mesh position={[0, 1.55, 0.25]}>
+            <sphereGeometry args={[0.48, 8, 6]} />
+            <meshToonMaterial color={color} />
+          </mesh>
+          {[-1, 1].map((side) => (
+            <group key={side}>
+              <mesh position={[side * 0.3, 2, 0.2]}>
+                <coneGeometry args={[0.17, 0.5, 4]} />
+                <meshToonMaterial color={color} />
+              </mesh>
+              {[-1, 1].map((z) => (
+                <mesh key={z} position={[side * 0.38, 0.4, z * 0.28]}>
+                  <boxGeometry args={[0.23, 0.8, 0.24]} />
+                  <meshToonMaterial color="#303849" />
+                </mesh>
+              ))}
+              <mesh position={[side * 0.17, 1.6, 0.67]}>
+                <sphereGeometry args={[0.06, 6, 6]} />
+                <meshBasicMaterial color="#ffca75" />
+              </mesh>
+            </group>
+          ))}
+        </group>
+      )}
+      {enemy && fighter.model === "plant" && (
+        <group>
+          <mesh position={[0, 0.8, 0]}>
+            <cylinderGeometry args={[0.2, 0.4, 1.6, 6]} />
+            <meshToonMaterial color="#65503d" />
+          </mesh>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <mesh
+              key={i}
+              position={[
+                Math.cos(i * 1.26) * 0.45,
+                1.7 + Math.sin(i) * 0.18,
+                Math.sin(i * 1.26) * 0.35,
+              ]}
+              scale={[1, 0.55, 1]}
+            >
+              <sphereGeometry args={[0.55, 6, 5]} />
+              <meshToonMaterial color={color} />
+            </mesh>
+          ))}
+          <mesh position={[0, 1.8, 0.5]}>
+            <sphereGeometry args={[0.22, 8, 6]} />
+            <meshToonMaterial color="#e1bd73" />
           </mesh>
         </group>
-      ))}
-      <mesh position={[0.68, 1.3, 0.12]} rotation={[0, 0, -0.25]}>
-        <boxGeometry args={[0.12, 1.2, 0.1]} />
-        <meshToonMaterial color="#ccd5df" />
-      </mesh>
+      )}
+      {enemy && fighter.model === "spirit" && (
+        <group>
+          <mesh position={[0, 1.35, 0]} rotation={[Math.PI, 0, 0]}>
+            <coneGeometry args={[0.6, 1.3, 8]} />
+            <meshToonMaterial color={color} transparent opacity={0.75} />
+          </mesh>
+          <mesh position={[0, 2, 0]}>
+            <sphereGeometry args={[0.5, 10, 8]} />
+            <meshToonMaterial color={color} transparent opacity={0.85} />
+          </mesh>
+          {[-1, 1].map((side) => (
+            <mesh key={side} position={[side * 0.18, 2, 0.45]}>
+              <sphereGeometry args={[0.07, 6, 6]} />
+              <meshBasicMaterial color="#ffecc5" />
+            </mesh>
+          ))}
+        </group>
+      )}
+      {enemy &&
+        fighter.model === "demon" &&
+        [-1, 1].map((side) => (
+          <mesh
+            key={side}
+            position={[side * 0.3, 2.6, 0]}
+            rotation={[0, 0, side * -0.3]}
+          >
+            <coneGeometry args={[0.17, 0.65, 5]} />
+            <meshToonMaterial color="#d7bd91" />
+          </mesh>
+        ))}
+      {enemy &&
+        fighter.model === "guardian" &&
+        [-1, 1].map((side) => (
+          <mesh key={side} position={[side * 0.56, 1.65, 0]}>
+            <boxGeometry args={[0.4, 0.45, 0.65]} />
+            <meshToonMaterial color="#d2b478" />
+          </mesh>
+        ))}
       {fighter.shield > 0 && (
         <mesh position={[0, 1.25, 0]}>
           <sphereGeometry args={[1.15, 12, 8]} />

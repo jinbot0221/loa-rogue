@@ -7,12 +7,14 @@ import {
   PASSIVES,
   type RunView,
   type RunRecord,
+  type Recipe,
   type BattleAction,
   type Account,
   type Hero,
   type HeroId,
 } from "@loa/shared";
 import { api, ApiError } from "./api";
+import { DungeonView, Inventory, Bestiary, RecipeBook } from "./DungeonView";
 import { BattleView } from "./BattleView";
 import "./style.css";
 const useSession = create<{
@@ -31,16 +33,19 @@ function App() {
     [tab, setTab] = useState<"party" | "codex">("party");
   const [run, setRun] = useState<RunView | null>(null);
   const [records, setRecords] = useState<RunRecord[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [battleOpen, setBattleOpen] = useState(false);
   async function load() {
     const me = await api<{ account: Account }>("/auth/me");
     const data = await api<{ heroes: Hero[] }>("/heroes");
-    const [active, history] = await Promise.all([
+    const [active, history, recipeData] = await Promise.all([
       api<{ run: RunView | null }>("/runs/active"),
       api<{ records: RunRecord[] }>("/records"),
+      api<{ recipes: Recipe[] }>("/recipes"),
     ]);
     setRun(active.run);
     setRecords(history.records);
+    setRecipes(recipeData.recipes);
     setAccount(me.account);
     setDraft(me.account.party);
     setHeroes(data.heroes);
@@ -85,6 +90,8 @@ function App() {
       setRun(result.run);
       setAccount(result.account);
       setBattleOpen(true);
+      if (path.endsWith("/equipment/craft"))
+        setRecipes((await api<{ recipes: Recipe[] }>("/recipes")).recipes);
       if (result.run.status !== "active")
         setRecords((await api<{ records: RunRecord[] }>("/records")).records);
     });
@@ -142,7 +149,7 @@ function App() {
               <small>THE ARK CHRONICLES</small>
             </span>
           </a>
-          <span className="build-tag">개발 프리뷰 · PHASE 2</span>
+          <span className="build-tag">개발 프리뷰 · DUNGEON UPDATE</span>
           {account && (
             <div className="profile">
               <span>{account.nickname}</span>
@@ -301,7 +308,7 @@ function App() {
               <p className="phase-note">
                 계정·영웅 도감·파티 편성과 전투 도전을 이용할 수 있습니다.
                 <br />
-                100층 전투 경로 · 일반층 이벤트와 장비는 개발 예정입니다.
+                100층 이벤트 · 장비 · 상점 · 정예와 보스 전투
               </p>
             </section>
           </main>
@@ -317,17 +324,35 @@ function App() {
                 {notice}
               </p>
             )}
-            <BattleView
+            {run.stage === "event" ? (
+              <DungeonView
+                run={run}
+                busy={busy}
+                onHome={() => setBattleOpen(false)}
+                onCommand={(suffix, body) =>
+                  runCommand(`/runs/${run.id}/${suffix}`, body)
+                }
+              />
+            ) : (
+              <BattleView
+                run={run}
+                busy={busy}
+                onHome={() => setBattleOpen(false)}
+                onAction={(action: BattleAction) =>
+                  runCommand(`/runs/${run.id}/battle-action`, { action })
+                }
+                onReward={(choice) =>
+                  runCommand(`/runs/${run.id}/select-reward`, { choice })
+                }
+                onAbandon={() => runCommand(`/runs/${run.id}/abandon`)}
+              />
+            )}
+            <Inventory
               run={run}
               busy={busy}
-              onHome={() => setBattleOpen(false)}
-              onAction={(action: BattleAction) =>
-                runCommand(`/runs/${run.id}/battle-action`, { action })
+              onCommand={(suffix, body) =>
+                runCommand(`/runs/${run.id}/${suffix}`, body)
               }
-              onReward={(choice) =>
-                runCommand(`/runs/${run.id}/select-reward`, { choice })
-              }
-              onAbandon={() => runCommand(`/runs/${run.id}/abandon`)}
             />
           </main>
         ) : (
@@ -591,14 +616,16 @@ function App() {
                       <p>
                         {dirty
                           ? "먼저 변경한 파티를 저장하세요."
-                          : "저장된 파티로 1층 전투를 시작합니다."}
+                          : "저장된 파티로 1층 이벤트를 시작합니다."}
                       </p>
                     </>
                   )}
-                  <p>전투 경로 프리뷰 · 이벤트/장비는 후속 단계</p>
+                  <p>층 이벤트3개 중 선택 · 장비/상점/보스</p>
                 </div>
               </aside>
             </div>
+            <Bestiary />
+            <RecipeBook recipes={recipes} />
             <details className="records">
               <summary>최근 도전 기록 ({records.length})</summary>
               {records.length ? (
@@ -627,7 +654,7 @@ function App() {
             LOA ROGUE <span className="footer-dot">·</span> 자체 제작 UI / 원작
             에셋 미사용
           </span>
-          <span>PHASE 2 — RIFT EXPEDITION</span>
+          <span>DUNGEON — EVENTS & EQUIPMENT</span>
         </footer>
       </div>
     </>

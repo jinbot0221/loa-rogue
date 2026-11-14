@@ -533,3 +533,10 @@ test("existing email accounts, sessions and saved party survive username migrati
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("general request limit remains finite while allowing a normal multi-screen session", () =>
+  fixture(async (app) => {
+    for (let i = 0; i < 300; i++)
+      assert.equal((await app.inject({ url: "/api/health" })).statusCode, 200);
+    assert.equal((await app.inject({ url: "/api/health" })).statusCode, 429);
+  }));

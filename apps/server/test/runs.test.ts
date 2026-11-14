@@ -53,6 +53,24 @@ const post = (
   headers: Record<string, string>,
   payload: Record<string, unknown>,
 ) => app.inject({ method: "POST", url, headers, payload });
+async function beginFight(app: App, headers: Record<string, string>) {
+  const start = await post(app, "/api/runs", headers, action());
+  assert.equal(start.statusCode, 201, start.body);
+  const run = start.json().run;
+  const selected = await post(
+    app,
+    `/api/runs/${run.id}/select-event`,
+    headers,
+    {
+      ...action(run.revision),
+      candidateId: run.dungeon.candidates.find(
+        (c: { type: string }) => c.type === "battle",
+      ).id,
+    },
+  );
+  assert.equal(selected.statusCode, 200, selected.body);
+  return selected.json().run;
+}
 test("start snapshots party, hides server RNG, is idempotent, limits active runs and checks ownership", () =>
   fixture(async (app) => {
     const one = await user(app);
@@ -104,18 +122,17 @@ test("start snapshots party, hides server RNG, is idempotent, limits active runs
 test("battle actions are atomic, reject illegal skills/tampering, preserve RNG on failure and detect races", () =>
   fixture(async (app) => {
     const u = await user(app);
-    const start = (await post(app, "/api/runs", u.headers, action())).json()
-      .run;
+    const start = await beginFight(app, u.headers);
     const url = `/api/runs/${start.id}/battle-action`;
     const illegal = await post(app, url, u.headers, {
-      ...action(),
+      ...action(start.revision),
       action: { type: "skill", skillId: "wei_u" },
     });
     assert.equal(illegal.statusCode, 400);
     assert.equal(
       (
         await post(app, url, u.headers, {
-          ...action(),
+          ...action(start.revision),
           action: { type: "attack" },
           damage: 999,
         })
@@ -126,10 +143,10 @@ test("battle actions are atomic, reject illegal skills/tampering, preserve RNG o
       await app.inject({ url: `/api/runs/${start.id}`, headers: u.headers })
     ).json().run;
     assert.deepEqual(original, start);
-    const payload = { ...action(), action: { type: "attack" } };
+    const payload = { ...action(start.revision), action: { type: "attack" } };
     const moved = await post(app, url, u.headers, payload);
     assert.equal(moved.statusCode, 200, moved.body);
-    assert.equal(moved.json().run.revision, 1);
+    assert.equal(moved.json().run.revision, start.revision + 1);
     assert.deepEqual(
       (await post(app, url, u.headers, payload)).json(),
       moved.json(),
@@ -144,9 +161,12 @@ test("battle actions are atomic, reject illegal skills/tampering, preserve RNG o
       409,
     );
     const raced = await Promise.all([
-      post(app, url, u.headers, { ...action(1), action: { type: "attack" } }),
       post(app, url, u.headers, {
-        ...action(1),
+        ...action(start.revision + 1),
+        action: { type: "attack" },
+      }),
+      post(app, url, u.headers, {
+        ...action(start.revision + 1),
         action: { type: "switch", heroId: "nineveh" },
       }),
     ]);
@@ -155,7 +175,7 @@ test("battle actions are atomic, reject illegal skills/tampering, preserve RNG o
 test("real first-floor fight, reward choice exactly once, next floor and abandon payout exactly once", () =>
   fixture(async (app) => {
     const u = await user(app);
-    let run = (await post(app, "/api/runs", u.headers, action())).json().run;
+    let run = await beginFight(app, u.headers);
     for (let i = 0; i < 12 && run.stage === "battle"; i++) {
       const r = await post(
         app,
@@ -168,7 +188,7 @@ test("real first-floor fight, reward choice exactly once, next floor and abandon
     }
     assert.equal(run.stage, "reward");
     assert.equal(run.completedFloor, 1);
-    const reward = { ...action(run.revision), choice: "gold" };
+    const reward = { ...action(run.revision), choice: "equipment" };
     const selected = await post(
       app,
       `/api/runs/${run.id}/select-reward`,
@@ -178,7 +198,8 @@ test("real first-floor fight, reward choice exactly once, next floor and abandon
     assert.equal(selected.statusCode, 200);
     run = selected.json().run;
     assert.equal(run.floor, 2);
-    assert.equal(run.gold, 30);
+    assert.equal(run.gold, 75);
+    assert.equal(run.equipment.length, 1);
     assert.deepEqual(
       (
         await post(app, `/api/runs/${run.id}/select-reward`, u.headers, reward)
@@ -248,7 +269,7 @@ test("100th floor clear and first-clear bonus are credited once, subsequent clea
       const db = new DatabaseSync(path);
       try {
         db.prepare(
-          "UPDATE runs SET floor=100,completed_floor=99,battle_json=? WHERE id=?",
+          "UPDATE runs SET dungeon_json=NULL,floor=100,completed_floor=99,battle_json=? WHERE id=?",
         ).run(JSON.stringify(battle), run.id);
       } finally {
         db.close();
@@ -288,7 +309,7 @@ test("defeat credits reached floor reward exactly once", () =>
     const db = new DatabaseSync(path);
     try {
       db.prepare(
-        "UPDATE runs SET floor=7,completed_floor=6,battle_json=? WHERE id=?",
+        "UPDATE runs SET dungeon_json=NULL,floor=7,completed_floor=6,battle_json=? WHERE id=?",
       ).run(JSON.stringify(b), run.id);
     } finally {
       db.close();
@@ -315,12 +336,12 @@ test("active battle survives server restart with identical confirmed state", asy
   let app = await createApp({ ...config, databasePath: path });
   try {
     const u = await user(app);
-    const run = (await post(app, "/api/runs", u.headers, action())).json().run;
+    const run = await beginFight(app, u.headers);
     const moved = await post(
       app,
       `/api/runs/${run.id}/battle-action`,
       u.headers,
-      { ...action(), action: { type: "skill", skillId: "wei_1" } },
+      { ...action(run.revision), action: { type: "skill", skillId: "wei_1" } },
     );
     assert.equal(moved.statusCode, 200);
     await app.close();

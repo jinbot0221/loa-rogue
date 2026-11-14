@@ -66,7 +66,7 @@ export async function createApp(config: Config) {
     trustProxy: false,
   });
   await app.register(cookie);
-  await app.register(rateLimit, { max: 120, timeWindow: "1 minute" });
+  await app.register(rateLimit, { max: 300, timeWindow: "1 minute" });
   app.addHook("onClose", async () => {
     db.close();
   });
@@ -216,7 +216,7 @@ export async function createApp(config: Config) {
   };
   app.get("/api/health", async () => {
     db.prepare("SELECT 1").get();
-    return { status: "ok", phase: 2 };
+    return { status: "ok", phase: 5 };
   });
   app.post("/api/auth/register", authLimit, async (req, reply) => {
     const body = registerSchema.parse(req.body);
