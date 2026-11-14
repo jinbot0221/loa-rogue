@@ -3,6 +3,11 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import type { Group } from "three";
 import { HERO_ARTWORK } from "./art/heroes";
 import { HeroArtwork } from "./HeroArtwork";
+import {
+  BattleBackdrop,
+  BattleEffects,
+  battleRegion,
+} from "./BattleAtmosphere";
 import { HEROES, type Fighter, type PublicBattle } from "@loa/shared";
 function Model({
   fighter,
@@ -223,7 +228,13 @@ function hasWebGL() {
     return false;
   }
 }
-export default function BattleScene({ battle }: { battle: PublicBattle }) {
+export default function BattleScene({
+  battle,
+  floor,
+}: {
+  battle: PublicBattle;
+  floor: number;
+}) {
   const [mode, setMode] = useState(
     () => localStorage.getItem("loa-graphics") ?? "3d",
   );
@@ -284,6 +295,7 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
   );
   return (
     <div className="scene-wrapper">
+      <BattleBackdrop floor={floor} boss={!!enemy.boss} />
       <button
         className="scene-quality"
         onClick={() => {
@@ -305,13 +317,12 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
             camera={{ position: [0, 3.1, 6.6], fov: 43 }}
             onCreated={({ camera }) => camera.lookAt(0, 1, 0)}
           >
-            <color attach="background" args={["#111a2a"]} />
             <ambientLight intensity={1.7} />
             <directionalLight position={[3, 6, 4]} intensity={2.5} />
             <pointLight position={[-3, 3, -2]} color="#6e9dff" intensity={20} />
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.03, 0]}>
               <circleGeometry args={[3.2, 32]} />
-              <meshToonMaterial color="#293750" />
+              <meshToonMaterial color={battleRegion(floor).floor} />
             </mesh>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
               <ringGeometry args={[2.7, 2.74, 32]} />
@@ -350,6 +361,7 @@ export default function BattleScene({ battle }: { battle: PublicBattle }) {
           {sprite}
         </div>
       )}
+      <BattleEffects battle={battle} />
       {!can3D && (
         <small className="scene-caption">
           이 기기에서는 2D 전투 표시를 사용합니다.

@@ -92,7 +92,11 @@ export function BattleView({
               <div className="scene-wrapper loading">전투 씬 로딩 중…</div>
             }
           >
-            <BattleScene battle={b} />
+            <BattleScene
+              key={`${run.id}:${run.floor}`}
+              battle={b}
+              floor={run.floor}
+            />
           </Suspense>
           <p className="enemy-intent">
             {fighting

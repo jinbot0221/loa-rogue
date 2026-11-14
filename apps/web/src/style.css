@@ -2728,3 +2728,199 @@ select {
     animation: none;
   }
 }
+
+/* Shared illustrated scenery and server-log driven effects in both rendering modes. */
+.battle-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.scene-wrapper > div:has(> canvas),
+.battle-fallback {
+  position: relative;
+}
+.battle-region-label {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 1;
+  font-size: 10px;
+  color: #e0e9e5;
+  text-shadow: 0 1px 3px #000;
+  pointer-events: none;
+}
+.battle-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--fx-color);
+}
+.fx-title {
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  top: 18%;
+  text-align: center;
+  font-size: clamp(11px, 2vw, 16px);
+  font-weight: 800;
+  text-shadow: 0 2px 4px #000;
+  animation: fx-title 0.85s both;
+}
+.fx-shapes {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  fill: var(--fx-color);
+  stroke: var(--fx-color);
+  filter: drop-shadow(0 0 5px var(--fx-color));
+}
+.enemy-fx .fx-shapes {
+  transform: scaleX(-1);
+}
+.fx-projectile {
+  animation: fx-projectile 0.85s both;
+  transform-origin: 245px 165px;
+}
+.fx-burst,
+.fx-motes {
+  animation: fx-burst 0.85s both;
+  transform-origin: 650px 165px;
+}
+.fx-amount {
+  position: absolute;
+  left: 69%;
+  top: 33%;
+  font-size: clamp(18px, 3vw, 29px);
+  font-weight: 900;
+  text-shadow: 0 2px 4px #000;
+  animation: fx-number 0.85s both;
+}
+.enemy-fx .fx-amount {
+  left: 29%;
+}
+.fx-shockwave .fx-projectile,
+.fx-impact .fx-projectile,
+.fx-rune .fx-projectile,
+.fx-heal .fx-projectile,
+.fx-shield .fx-projectile {
+  display: none;
+}
+.fx-arrow .fx-burst path,
+.fx-arrow .fx-burst ellipse:last-of-type,
+.fx-slash .fx-burst ellipse,
+.fx-slash .fx-burst path:last-child {
+  display: none;
+}
+.fx-rune .fx-burst {
+  stroke-dasharray: 10 6;
+}
+.fx-impact .fx-burst {
+  stroke-width: 9;
+}
+.fx-flame .fx-motes {
+  fill: #ffbd89;
+}
+.fx-heal .fx-shapes,
+.fx-shield .fx-shapes {
+  transform: translateX(-40%);
+}
+.fx-heal .fx-amount,
+.fx-shield .fx-amount {
+  left: 29%;
+}
+.fx-heal .fx-burst path,
+.fx-shield .fx-burst path:first-of-type {
+  display: none;
+}
+.ultimate-fx {
+  background: radial-gradient(
+    ellipse at 70% 60%,
+    color-mix(in srgb, var(--fx-color) 20%, transparent),
+    transparent 65%
+  );
+}
+.ultimate-fx .fx-burst {
+  stroke-width: 8;
+}
+@keyframes fx-projectile {
+  0%,
+  10% {
+    opacity: 0;
+    transform: scaleX(0.05);
+  }
+  40% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scaleX(1.1);
+  }
+}
+@keyframes fx-burst {
+  0%,
+  25% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-20deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45) rotate(15deg);
+  }
+}
+@keyframes fx-number {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+}
+@keyframes fx-title {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .battle-fx * {
+    animation: none !important;
+  }
+  .fx-projectile,
+  .fx-motes {
+    display: none;
+  }
+  .fx-burst {
+    opacity: 0.55;
+  }
+}
+.enemy-fx.fx-heal .fx-shapes,
+.enemy-fx.fx-shield .fx-shapes {
+  transform: none;
+}
+.enemy-fx.fx-heal .fx-amount,
+.enemy-fx.fx-shield .fx-amount {
+  left: 69%;
+}

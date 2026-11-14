@@ -18,6 +18,10 @@ test("new run, 3D scene, server actions, reload resume, victory reward and aband
     page.getByRole("heading", { name: "1층 전투", exact: true }),
   ).toBeVisible();
   await expect(page.locator("canvas")).toBeVisible();
+  await expect(
+    page.locator('.battle-backdrop[data-region="forest"]'),
+  ).toBeVisible();
+  await expect(page.locator(".battle-fx")).toHaveCount(0);
   const respond = page.waitForResponse(
     (r) =>
       r.url().endsWith("/battle-action") && r.request().method() === "POST",
@@ -25,6 +29,11 @@ test("new run, 3D scene, server actions, reload resume, victory reward and aband
   await page.getByRole("button", { name: /파쇄권/ }).click();
   const result = await (await respond).json();
   expect(result.run.revision).toBe(2);
+  await expect(
+    page.locator('.battle-fx[data-actor="hero"][data-effect="shockwave"]'),
+  ).toBeVisible();
+  await expect(page.locator(".fx-title")).toContainText("파쇄권");
+  await page.screenshot({ path: "/tmp/loa-skill-effect.png" });
   await page.getByRole("button", { name: "전투 기록", exact: true }).click();
   await expect(page.getByRole("list", { name: "전투 기록" })).toContainText(
     "파쇄권",
@@ -39,6 +48,7 @@ test("new run, 3D scene, server actions, reload resume, victory reward and aband
   await expect(
     page.getByText("턴 1 · 자동 저장", { exact: false }),
   ).toBeVisible();
+  await expect(page.locator(".battle-fx")).toHaveCount(0);
   let run = result.run;
   for (let i = 0; i < 10 && run.stage === "battle"; i++) {
     const response = page.waitForResponse(
@@ -93,6 +103,18 @@ test("2D low graphics mode still supports switching and server-authoritative com
     .getByRole("button", { name: /니나브/ })
     .click();
   expect((await (await response).json()).run.battle.activeHero).toBe(1);
+  await expect(
+    page.locator('.battle-backdrop[data-region="forest"]'),
+  ).toBeVisible();
+  const skillResponse = page.waitForResponse((r) =>
+    r.url().endsWith("/battle-action"),
+  );
+  await page.getByRole("button", { name: /빛의 화살/ }).click();
+  expect((await skillResponse).status()).toBe(200);
+  await expect(
+    page.locator('.battle-fx[data-actor="hero"][data-effect="arrow"]'),
+  ).toBeVisible();
+  await page.screenshot({ path: "/tmp/loa-2d-skill-effect.png" });
   await page.getByRole("button", { name: "전투 기록", exact: true }).click();
   await expect(page.getByRole("list", { name: "전투 기록" })).toContainText(
     "자발적 교체",
