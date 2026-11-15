@@ -11,3 +11,9 @@
 이 파일은 사용자 제공 참고 이미지 기반의 SD 파생 아트 패키지입니다. 참고 원본 사진은 포함하지 않습니다. 게임에는 별도 WebP 변환본이 연결되어 있습니다.
 
 SHA-256: `f7f4c60c8005820264624f8b6aa31a83f0a2879582643d04c14115b2dc131837`
+
+## 추가 완성 이미지
+
+[아만 PNG 보기 및 다운로드](https://github.com/jinbot0221/loa-rogue/blob/main/downloads/arman.png) · [원본 크기 PNG 직접 열기](https://github.com/jinbot0221/loa-rogue/raw/refs/heads/main/downloads/arman.png)
+
+아만 PNG는 위의 기존 10명 ZIP과 별도로 제공합니다. 이미지 페이지에서 다운로드 화살표를 누르거나 직접 연 이미지에서 저장할 수 있습니다.

@@ -13,12 +13,10 @@ test("20 heroes stay selectable on landscape; added SD heroes save, switch and u
   await page.getByLabel("비밀번호").fill("expanded-roster-password");
   await page.getByRole("button", { name: "회원가입 →" }).click();
   await expect(page.locator(".hero-card")).toHaveCount(20);
-  await expect(page.locator(".art-pending")).toHaveCount(4);
-  const awaiting = page
-    .locator(".hero-card")
-    .filter({
-      has: page.getByRole("heading", { name: "아브렐슈드", exact: true }),
-    });
+  await expect(page.locator(".art-pending")).toHaveCount(3);
+  const awaiting = page.locator(".hero-card").filter({
+    has: page.getByRole("heading", { name: "아브렐슈드", exact: true }),
+  });
   await expect(awaiting).toContainText("기본 모델");
   while (await page.locator(".hero-card.selected").count())
     await page.locator(".hero-card.selected button").first().click();
@@ -84,7 +82,7 @@ test("20 heroes stay selectable on landscape; added SD heroes save, switch and u
   await page.screenshot({ path: "/tmp/loa-kakul-combat.png" });
 });
 
-test("five newly supplied heroes load sprites and persist a full-cost party through combat switches", async ({
+test("six supplied heroes load sprites, switch and use Arman healing in a full-cost party", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 844, height: 390 });
@@ -96,13 +94,20 @@ test("five newly supplied heroes load sprites and persist a full-cost party thro
   await page.getByRole("button", { name: "회원가입 →" }).click();
   await expect(page.locator(".hero-card")).toHaveCount(20);
   const me = (await (await page.request.get("/api/auth/me")).json()).account;
-  const ids = ["kadan", "galatur", "delain_arman", "luterra", "valtan"];
+  const ids = [
+    "kadan",
+    "galatur",
+    "delain_arman",
+    "luterra",
+    "valtan",
+    "arman",
+  ];
   const db = new DatabaseSync(process.env.LOA_E2E_DATABASE!);
   try {
     for (const id of ids)
       db.prepare(
         "UPDATE hero_upgrades SET cost_reduction=? WHERE user_id=? AND hero_id=?",
-      ).run(id === "kadan" ? 2 : 1, me.id, id);
+      ).run(id === "arman" ? 0 : id === "delain_arman" ? 1 : 2, me.id, id);
   } finally {
     db.close();
   }
@@ -112,7 +117,7 @@ test("five newly supplied heroes load sprites and persist a full-cost party thro
   });
   expect(saved.status()).toBe(200);
   await page.reload();
-  await expect(page.locator(".party-slots li")).toHaveCount(5);
+  await expect(page.locator(".party-slots li")).toHaveCount(6);
   await page.getByRole("button", { name: "도전 시작", exact: true }).click();
   await enterRoom(page, "battle");
   await expect(
@@ -150,14 +155,38 @@ test("five newly supplied heroes load sprites and persist a full-cost party thro
   }
   await expect(page.locator(".battle-fx")).toHaveCount(0);
   await page.screenshot({ path: "/tmp/loa-valtan-combat.png" });
+  const switched = page.waitForResponse((r) =>
+    r.url().endsWith("/battle-action"),
+  );
+  await page
+    .locator(".battle-party")
+    .getByRole("button", { name: /^아만/ })
+    .click();
+  expect((await switched).status()).toBe(200);
+  const armanArt = page.locator('.sd-battle-overlay[data-hero="arman"] img');
+  await expect(armanArt).toBeVisible();
+  await expect
+    .poll(() => armanArt.evaluate((n) => (n as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+  await expect(
+    page.locator('.sd-battle-overlay[data-hero="delain_arman"]'),
+  ).toHaveCount(0);
+  await expect(page.locator(".battle-fx")).toHaveCount(0);
+  await page.screenshot({ path: "/tmp/loa-arman-combat.png" });
   const attack = page.waitForResponse((r) =>
     r.url().endsWith("/battle-action"),
   );
-  await page.getByRole("button", { name: /마수의 도끼/ }).click();
+  await page.getByRole("button", { name: /구원의 기도/ }).click();
   const result = (await (await attack).json()).run;
   expect(
+    result.battle.logs.some(
+      (l: { actor: string; kind: string; amount?: number }) =>
+        l.actor === "arman" && l.kind === "heal" && (l.amount ?? 0) > 0,
+    ),
+  ).toBe(true);
+  expect(
     result.battle.logs.some((l: { text: string }) =>
-      l.text.includes("마수의 도끼"),
+      l.text.includes("구원의 기도"),
     ),
   ).toBe(true);
 });
