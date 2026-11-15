@@ -2924,3 +2924,64 @@ select {
 .enemy-fx.fx-shield .fx-amount {
   left: 69%;
 }
+
+/* Expanded roster scrolls independently while party/start controls stay visible. */
+@media (orientation: landscape) and (max-height: 640px) {
+  .lobby-mode .hero-grid {
+    grid-template-rows: none;
+    grid-auto-rows: minmax(96px, auto);
+    overflow: auto;
+    min-height: 0;
+    align-content: start;
+  }
+  .lobby-mode .codex-mode .hero-grid {
+    overflow: visible;
+    grid-auto-rows: minmax(170px, auto);
+  }
+}
+.art-pending {
+  color: #b4bfcc;
+  font-size: 9px;
+  line-height: 12px;
+}
+@media (orientation: landscape) and (max-height: 640px) {
+  .lobby-mode .workspace:not(.codex-mode) .hero-card {
+    position: relative;
+  }
+  .lobby-mode .workspace:not(.codex-mode) .hero-art {
+    height: 44px;
+    min-height: 44px;
+  }
+  .lobby-mode .workspace:not(.codex-mode) .hero-art > .hero-artwork.portrait {
+    position: absolute;
+    right: 27px;
+    top: -5px;
+    width: 62px;
+    height: 62px;
+    object-fit: contain;
+    object-position: center !important;
+  }
+  .lobby-mode .workspace:not(.codex-mode) .hero-info h3 {
+    position: absolute;
+    top: 16px;
+    left: 6px;
+    width: calc(100% - 66px);
+    margin: 0;
+    text-shadow: 0 1px 3px #000;
+  }
+  .lobby-mode .workspace:not(.codex-mode) .art-pending {
+    position: absolute;
+    top: 31px;
+    left: 6px;
+    width: calc(100% - 20px);
+    font-size: 8px;
+  }
+  .lobby-mode .codex-mode .hero-art {
+    height: 70px;
+    min-height: 70px;
+  }
+  .lobby-mode .codex-mode .hero-art > .hero-artwork.portrait {
+    object-fit: contain;
+    object-position: center !important;
+  }
+}

@@ -66,7 +66,7 @@ test("registration atomically creates account, six upgrades, currency and secure
       );
       assert.equal(
         db.prepare("SELECT COUNT(*) n FROM hero_upgrades").get()!.n,
-        6,
+        HEROES.length,
       );
       assert.notEqual(
         db.prepare("SELECT id_hash FROM sessions").get()!.id_hash,
@@ -339,14 +339,17 @@ test("server applies permanent cost reductions and minimum cost when validating 
       headers: { cookie },
     });
     assert.deepEqual(
-      heroes.json().heroes.map((h: { currentCost: number }) => h.currentCost),
+      heroes
+        .json()
+        .heroes.slice(0, 6)
+        .map((h: { currentCost: number }) => h.currentCost),
       [2, 3, 2, 3, 4, 1],
     );
     const r = await app.inject({
       method: "PUT",
       url: "/api/party",
       headers: { origin, cookie },
-      payload: { ...action(), heroIds: HEROES.map((h) => h.id) },
+      payload: { ...action(), heroIds: HEROES.slice(0, 6).map((h) => h.id) },
     });
     assert.equal(r.statusCode, 200, r.body);
   }));
@@ -546,3 +549,69 @@ test("general request limit remains finite while allowing a normal multi-screen 
     }
     assert.equal((await app.inject({ url: "/api/health" })).statusCode, 429);
   }));
+
+test("expanded roster migration preserves an existing account, upgrades and active run", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "loa-roster-migration-"));
+  const path = join(dir, "test.sqlite");
+  let app = await createApp({ ...base, databasePath: path });
+  try {
+    const { cookie, account } = await register(app, "legacy_roster");
+    const headers = { origin, cookie };
+    const started = await app.inject({
+      method: "POST",
+      url: "/api/runs",
+      headers,
+      payload: action(),
+    });
+    assert.equal(started.statusCode, 201, started.body);
+    const before = started.json().run;
+    await app.close();
+    const db = new DatabaseSync(path);
+    db.exec("PRAGMA foreign_keys=ON");
+    db.prepare(
+      "DELETE FROM schema_migrations WHERE name='005_expanded_heroes.sql'",
+    ).run();
+    for (const hero of HEROES.slice(6))
+      db.prepare("DELETE FROM hero_upgrades WHERE hero_id=?").run(hero.id);
+    db.prepare(
+      "UPDATE hero_upgrades SET attack_level=3 WHERE user_id=? AND hero_id='wei'",
+    ).run(account.id);
+    db.prepare(
+      "UPDATE user_currencies SET ark_crystals=17 WHERE user_id=?",
+    ).run(account.id);
+    db.close();
+    app = await createApp({ ...base, databasePath: path });
+    const me = (await app.inject({ url: "/api/auth/me", headers })).json()
+      .account;
+    assert.equal(me.crystals, 17);
+    assert.deepEqual(me.party, account.party);
+    const migrated = new DatabaseSync(path);
+    assert.equal(
+      migrated
+        .prepare("SELECT COUNT(*) n FROM hero_upgrades WHERE user_id=?")
+        .get(account.id)!.n,
+      HEROES.length,
+    );
+    assert.equal(
+      migrated
+        .prepare(
+          "SELECT attack_level n FROM hero_upgrades WHERE user_id=? AND hero_id='wei'",
+        )
+        .get(account.id)!.n,
+      3,
+    );
+    migrated.close();
+    const active = await app.inject({ url: "/api/runs/active", headers });
+    assert.deepEqual(active.json().run, before);
+    // Reopening an already upgraded database must remain idempotent.
+    await app.close();
+    app = await createApp({ ...base, databasePath: path });
+    assert.equal(
+      (await app.inject({ url: "/api/heroes", headers })).json().heroes.length,
+      20,
+    );
+  } finally {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

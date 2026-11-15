@@ -10,6 +10,36 @@ const source = "사용자가 이 채팅에 첨부한 참고 이미지 (2026-11-1
 const usageNote =
   "제공 참고 이미지의 특징을 바탕으로 이미지 생성 도구로 다시 그린 SD 파생 아트. 구체적인 원본 사용권 조건은 별도 미기재.";
 export const HERO_ARTWORK: Partial<Record<HeroId, HeroArtwork>> = {
+  echidna: {
+    src: "/art/heroes/echidna.webp",
+    source: "사용자 제공 15장 중 11번: 에키드나 (2026-11-15)",
+    usageNote,
+    portraitPosition: "50% 26%",
+  },
+  akkan: {
+    src: "/art/heroes/akkan.webp",
+    source: "사용자 제공 15장 중 12번: 일리아칸 (2026-11-15)",
+    usageNote,
+    portraitPosition: "50% 22%",
+  },
+  kharmine: {
+    src: "/art/heroes/kharmine.webp",
+    source: "사용자 제공 15장 중 13번: 카마인 (2026-11-15)",
+    usageNote,
+    portraitPosition: "50% 21%",
+  },
+  kamen: {
+    src: "/art/heroes/kamen.webp",
+    source: "사용자 제공 15장 중 14번: 카멘 (2026-11-15)",
+    usageNote,
+    portraitPosition: "50% 30%",
+  },
+  kakul_saydon: {
+    src: "/art/heroes/kakul_saydon.webp",
+    source: "사용자 제공 15장 중 15번: 쿠크세이튼 (2026-11-15)",
+    usageNote,
+    portraitPosition: "50% 29%",
+  },
   wei: {
     src: "/art/heroes/wei.webp",
     source,

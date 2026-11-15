@@ -62,14 +62,14 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
     data: {
       actionId: randomUUID(),
       revision: me.revision,
-      heroIds: HEROES.map((h) => h.id),
+      heroIds: HEROES.slice(0, 6).map((h) => h.id),
     },
   });
   expect(saved.status()).toBe(200);
   await page.reload();
   await expect(page.locator(".party-slots li")).toHaveCount(6);
   const portraits = page.locator(".hero-art img");
-  await expect(portraits).toHaveCount(6);
+  await expect(portraits).toHaveCount(11);
   await expect
     .poll(() =>
       portraits.evaluateAll((nodes) =>
@@ -78,7 +78,10 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
     )
     .toBe(true);
   await page.screenshot({ path: "/tmp/loa-lobby-640.png", fullPage: true });
-  await inside(page, page.locator(".hero-info button"));
+  await inside(
+    page,
+    page.locator(".hero-card:nth-child(-n+6) .hero-info button"),
+  );
   await inside(
     page,
     page.getByRole("button", { name: "파티 저장", exact: true }),

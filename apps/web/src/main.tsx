@@ -16,6 +16,7 @@ import {
 import { api, ApiError } from "./api";
 import { DungeonView, Inventory, Bestiary, RecipeBook } from "./DungeonView";
 import { GameDialog } from "./GameDialog";
+import { HERO_ARTWORK } from "./art/heroes";
 import { HeroArtwork } from "./HeroArtwork";
 import { RouteMap } from "./RouteMap";
 import { BattleView } from "./BattleView";
@@ -548,7 +549,7 @@ function App() {
                         : "기본 능력치 · 영구 강화는 아직 적용되지 않습니다."}
                     </p>
                   </div>
-                  <span className="count">06 HEROES</span>
+                  <span className="count">{heroes.length} HEROES</span>
                 </div>
                 <div className="hero-grid">
                   {heroes.map((hero, i) => {
@@ -562,13 +563,15 @@ function App() {
                         }
                       >
                         <div className="hero-art" aria-hidden="true">
-                          <span className="hero-no">0{i + 1}</span>
+                          <span className="hero-no">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
                           <HeroArtwork
                             presentation="portrait"
                             heroId={hero.id}
                             fallback={
                               <div className="hero-emblem">
-                                {["拳", "羽", "剣", "幻", "光", "盾"][i]}
+                                {["拳", "羽", "剣", "幻", "光", "盾"][i] ?? "✦"}
                               </div>
                             }
                           />
@@ -580,6 +583,11 @@ function App() {
                         <div className="hero-info">
                           <h3>{hero.name}</h3>
                           <p>{hero.role}</p>
+                          {!HERO_ARTWORK[hero.id] && (
+                            <small className="art-pending">
+                              SD 준비 중 · 기본 모델
+                            </small>
+                          )}
                           <div className="stats">
                             <span>
                               HP <b>{hero.hp}</b>

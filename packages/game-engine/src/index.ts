@@ -1,6 +1,7 @@
 import {
   HEROES,
   HERO_SKILLS,
+  HERO_PASSIVE_BONUSES,
   BASIC,
   MONSTERS,
   type BattleState,
@@ -19,6 +20,7 @@ export interface Upgrade {
 }
 export function heroFighter(id: HeroId, u: Upgrade = {}): Fighter {
   const h = HEROES.find((h) => h.id === id)!;
+  const passive = HERO_PASSIVE_BONUSES[id];
   const hp = Math.floor(h.hp * (1 + 0.02 * (u.hp_level ?? 0)));
   return {
     id,
@@ -29,16 +31,20 @@ export function heroFighter(id: HeroId, u: Upgrade = {}): Fighter {
     attack: Math.floor(h.attack * (1 + 0.015 * (u.attack_level ?? 0))),
     defense: Math.floor(h.defense * (1 + 0.015 * (u.defense_level ?? 0))),
     speed: h.speed * (1 + 0.005 * (u.speed_level ?? 0)),
-    crit: 0.05 + 0.005 * (u.crit_level ?? 0) + (id === "nineveh" ? 0.15 : 0),
+    crit:
+      0.05 +
+      0.005 * (u.crit_level ?? 0) +
+      (id === "nineveh" ? 0.15 : 0) +
+      (passive?.crit ?? 0),
     stagger: 100,
     maxStagger: 100,
     staggered: false,
     immunity: 0,
-    shield: 0,
-    shieldTurns: 0,
+    shield: passive?.shield ?? 0,
+    shieldTurns: passive?.shield ? 3 : 0,
     statuses: [],
     cooldowns: {},
-    gauge: 0,
+    gauge: passive?.gauge ?? 0,
     boss: false,
   };
 }

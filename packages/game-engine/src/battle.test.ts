@@ -120,7 +120,7 @@ test("cooldowns and ultimate requirements reject illegal actions without advanci
   assert.ok(charged.logs.some((l) => l.text.includes("도철의 포효")));
   assert.ok(charged.party[0].gauge <= 10);
 });
-test("six heroes each have two distinct skills and one functioning ultimate", () => {
+test("all 20 heroes each have two distinct skills and one functioning ultimate", () => {
   for (const hero of HEROES) {
     assert.equal(HERO_SKILLS[hero.id].length, 3);
     for (const skill of HERO_SKILLS[hero.id]) {
@@ -180,4 +180,13 @@ test("boss recovery clears pending stun; three-enemy encounters still have only 
   const three = battle(["wei"], 15);
   assert.equal(three.enemies.length, 3);
   assert.equal(three.activeEnemy, 0);
+});
+
+test("expanded hero passives affect initial battle state without changing original heroes", () => {
+  assert.ok(Math.abs(heroFighter("kadan").crit - 0.15) < 1e-9);
+  assert.equal(heroFighter("galatur").shield, 20);
+  assert.equal(heroFighter("galatur").shieldTurns, 3);
+  assert.equal(heroFighter("echidna").gauge, 20);
+  assert.equal(heroFighter("wei").gauge, 0);
+  assert.equal(heroFighter("wei").shield, 0);
 });

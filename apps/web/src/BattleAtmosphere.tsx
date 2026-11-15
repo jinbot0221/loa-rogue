@@ -172,6 +172,20 @@ type Visual = {
   amount?: number;
 };
 const HERO_FX: Record<string, [string, string]> = {
+  kadan: ["slash", "#b2ceff"],
+  galatur: ["impact", "#ffcc82"],
+  delain_arman: ["flame", "#c18cf0"],
+  luterra: ["slash", "#a4cfff"],
+  valtan: ["impact", "#ed996d"],
+  vykas: ["rune", "#ef9cdb"],
+  sien: ["shockwave", "#72e7ed"],
+  arman: ["rune", "#b0f6d8"],
+  brelshaza: ["rune", "#c4a5ff"],
+  echidna: ["rune", "#f19cb7"],
+  akkan: ["flame", "#8ae7b5"],
+  kharmine: ["flame", "#ff9b79"],
+  kamen: ["slash", "#a1aeff"],
+  kakul_saydon: ["impact", "#ffc18f"],
   wei: ["shockwave", "#c09aff"],
   nineveh: ["arrow", "#87efff"],
   thirain: ["slash", "#ffe5a2"],
