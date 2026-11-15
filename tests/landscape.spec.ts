@@ -69,7 +69,7 @@ test("640x360 and 844x390 keep lobby actions, path selection, five combat action
   await page.reload();
   await expect(page.locator(".party-slots li")).toHaveCount(6);
   const portraits = page.locator(".hero-art img");
-  await expect(portraits).toHaveCount(11);
+  await expect(portraits).toHaveCount(16);
   await expect
     .poll(() =>
       portraits.evaluateAll((nodes) =>
